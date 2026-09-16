@@ -119,6 +119,74 @@
         </div>
       </div>
 
+      <!-- สลิปเงินเดือน (Manual) -->
+      <div class="view" id="view-manualslip">
+        <div class="card no-print" style="margin-bottom:16px;" id="manualSlipListCard">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div>
+              <h3 class="section-title">สลิปเงินเดือน (Manual)</h3>
+              <p class="section-sub">จัดทำสลิปเองสำหรับกรณีจ่ายเพิ่มเติม/ตกเบิก — แยกอิสระจากข้อมูลที่นำเข้าจาก Excel</p>
+            </div>
+            <button class="btn btn-primary" onclick="ManualSlip.newForm()">+ สร้างสลิปใหม่</button>
+          </div>
+          <div class="field" style="margin-top:10px;"><input id="manualSlipSearch" placeholder="ค้นหาชื่อ-สกุล..." oninput="ManualSlip.loadList()"/></div>
+          <div class="table-scroll"><table id="manualSlipTable"><thead><tr><th>วันที่ออกสลิป</th><th>ชื่อ-สกุล</th><th>หัวข้อ</th><th>รับสุทธิ</th><th></th></tr></thead><tbody></tbody></table></div>
+        </div>
+
+        <div class="card no-print" style="margin-bottom:16px;display:none;" id="manualSlipFormCard">
+          <h3 class="section-title">สร้างสลิปเงินเดือน (Manual)</h3>
+          <div class="grid grid-3">
+            <div class="field">
+              <label>ชื่อ-สกุลผู้รับเงิน *</label>
+              <input id="mfName" list="manualEmpDatalist" placeholder="พิมพ์หรือเลือกจากรายชื่อ" onchange="ManualSlip.onNameChange()"/>
+              <datalist id="manualEmpDatalist"></datalist>
+            </div>
+            <div class="field"><label>ประเภท</label><input id="mfType" placeholder="เช่น ข้าราชการส่วนท้องถิ่น"/></div>
+            <div class="field"><label>กอง/สำนัก</label><input id="mfDept" placeholder="เช่น งานบริหารงานคลัง"/></div>
+          </div>
+          <div class="grid grid-2" style="gap:14px;">
+            <div class="field"><label>หัวข้อ/เหตุผล *</label><input id="mfTitle" placeholder="เช่น เงินตกเบิกค่าตอบแทนพิเศษ เดือนสิงหาคม 2569"/></div>
+            <div class="field"><label>วันที่ออกสลิป</label><input id="mfDate" type="date"/></div>
+          </div>
+
+          <div class="grid grid-2" style="gap:20px;margin-top:8px;">
+            <div>
+              <label>รายการรับ</label>
+              <div id="mfIncomeRows"></div>
+              <button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="ManualSlip.addRow('income')">+ เพิ่มรายการรับ</button>
+            </div>
+            <div>
+              <label>รายการหัก</label>
+              <div id="mfDeductionRows"></div>
+              <button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="ManualSlip.addRow('deduction')">+ เพิ่มรายการหัก</button>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:14px;"><label>หมายเหตุ (ไม่บังคับ)</label><textarea id="mfNote" rows="2"></textarea></div>
+
+          <div class="slip-net" style="margin-top:14px;max-width:360px;">
+            <div class="lbl">เงินรับสุทธิ (โดยประมาณ)</div>
+            <div class="amt" id="mfNetPreview">0.00 บาท</div>
+          </div>
+
+          <div class="modal-foot" style="padding:16px 0 0 0;border:none;">
+            <button class="btn btn-ghost" onclick="ManualSlip.cancelForm()">ยกเลิก</button>
+            <button class="btn btn-primary" id="mfSaveBtn" onclick="ManualSlip.save()">บันทึกและดูสลิป</button>
+          </div>
+        </div>
+
+        <div id="manualSlipViewWrap" style="display:none;">
+          <div class="card no-print" style="margin-bottom:16px;display:flex;gap:10px;justify-content:space-between;align-items:center;">
+            <button class="btn btn-ghost" onclick="ManualSlip.backToList()">← กลับไปรายการ</button>
+            <div style="display:flex;gap:10px;">
+              <button class="btn btn-ghost" onclick="Slip.print()">🖨️ พิมพ์</button>
+              <button class="btn btn-gold" id="manualSlipPdfBtn" onclick="ManualSlip.downloadPdf()">⬇ ดาวน์โหลด PDF</button>
+            </div>
+          </div>
+          <div id="manualSlipPage"></div>
+        </div>
+      </div>
+
       <!-- ตั้งค่า -->
       <div class="view" id="view-settings">
         <div class="grid grid-2" style="align-items:start;">
@@ -163,5 +231,6 @@
 <script src="js/import.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/slip.js"></script>
+<script src="js/manualslip.js"></script>
 </body>
 </html>

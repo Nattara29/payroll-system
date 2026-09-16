@@ -62,6 +62,14 @@ const Slip = {
       .join("");
   },
 
+  async loadOrgSettings() {
+    if (!Slip.orgSettings) {
+      const { data: org } = await sb.from("org_settings").select("*").eq("id", 1).single();
+      Slip.orgSettings = org;
+    }
+    return Slip.orgSettings;
+  },
+
   async view(recordId) {
     const { data: record, error } = await sb
       .from("payroll_records")
@@ -70,12 +78,29 @@ const Slip = {
       .single();
     if (error) return UI.toast(error.message, true);
 
-    if (!Slip.orgSettings) {
-      const { data: org } = await sb.from("org_settings").select("*").eq("id", 1).single();
-      Slip.orgSettings = org;
-    }
+    const org = await Slip.loadOrgSettings();
+    const p = record.payroll_periods || {};
+    const emp = record.employees || {};
+    const dept = record.departments || {};
+    const monthLabel = `${Slip.MONTH_NAMES[p.month] || p.month} พ.ศ. ${p.year}`;
 
-    document.getElementById("slipPage").innerHTML = Slip.renderHTML(record, Slip.orgSettings);
+    const data = {
+      fullName: emp.full_name,
+      employeeType: emp.employee_type,
+      departmentName: dept.name,
+      docTitle: "สลิปเงินเดือน",
+      subtitle: `ประจำเดือน ${monthLabel}`,
+      metaLabel: "งวด:",
+      metaValue: `${p.month}/${p.year}`,
+      income: record.income,
+      deductions: record.deductions,
+      total_income: record.total_income,
+      total_deduction: record.total_deduction,
+      net_pay: record.net_pay,
+      filenameBase: `สลิปเงินเดือน_${emp.full_name || ""}_${p.month}-${p.year}`.replace(/\s+/g, ""),
+    };
+
+    document.getElementById("slipPage").innerHTML = Slip.renderHTML(data, org);
     document.getElementById("slipSearchCard").style.display = "none";
     document.getElementById("slipViewWrap").style.display = "block";
     window.scrollTo(0, 0);
@@ -90,9 +115,11 @@ const Slip = {
     window.print();
   },
 
-  async downloadPdf() {
-    const btn = document.getElementById("slipPdfBtn");
-    const el = document.getElementById("slipPage").firstElementChild;
+  async downloadPdf(pageContainerId, btnId) {
+    pageContainerId = pageContainerId || "slipPage";
+    btnId = btnId || "slipPdfBtn";
+    const btn = document.getElementById(btnId);
+    const el = document.getElementById(pageContainerId).firstElementChild;
     if (!el) return;
     btn.disabled = true;
     btn.textContent = "กำลังสร้าง PDF...";
@@ -123,13 +150,12 @@ const Slip = {
     return Number(n || 0).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   },
 
-  renderHTML(record, org) {
-    const p = record.payroll_periods || {};
-    const emp = record.employees || {};
-    const dept = record.departments || {};
-    const incomeRows = Object.entries(record.income || {}).filter(([, v]) => Number(v) > 0);
-    const deductionRows = Object.entries(record.deductions || {}).filter(([, v]) => Number(v) > 0);
-    const monthLabel = `${Slip.MONTH_NAMES[p.month] || p.month} พ.ศ. ${p.year}`;
+  // data: { fullName, employeeType, departmentName, docTitle, subtitle, metaLabel, metaValue,
+  //          income, deductions, total_income, total_deduction, net_pay, filenameBase, note }
+  // ใช้ shape กลางนี้ร่วมกันทั้งสลิปที่มาจากข้อมูลนำเข้า Excel และสลิปที่จัดทำเอง (Manual)
+  renderHTML(data, org) {
+    const incomeRows = Object.entries(data.income || {}).filter(([, v]) => Number(v) > 0);
+    const deductionRows = Object.entries(data.deductions || {}).filter(([, v]) => Number(v) > 0);
 
     const logoHtml = org && org.logo_url ? `<img src="${org.logo_url}" alt="โลโก้"/>` : `<div class="seal-fallback">${(org && org.org_name_short) || "ทม."}</div>`;
     const watermarkHtml = org && org.logo_url ? `<div class="slip-watermark"><img src="${org.logo_url}" alt=""/></div>` : "";
@@ -137,10 +163,10 @@ const Slip = {
     const incomeHtml = incomeRows.length ? incomeRows.map(([label, v]) => `<tr><td>${label}</td><td>${Slip.fmt(v)}</td></tr>`).join("") : `<tr class="empty-row"><td colspan="2">- ไม่มีรายการ -</td></tr>`;
     const deductionHtml = deductionRows.length ? deductionRows.map(([label, v]) => `<tr><td>${label}</td><td>${Slip.fmt(v)}</td></tr>`).join("") : `<tr class="empty-row"><td colspan="2">- ไม่มีรายการ -</td></tr>`;
 
-    const filename = `สลิปเงินเดือน_${emp.full_name || ""}_${p.month}-${p.year}`.replace(/\s+/g, "");
+    const noteHtml = data.note ? `<div class="slip-section-label" style="margin-top:10px;">หมายเหตุ</div><div style="font-size:12.5px;">${data.note}</div>` : "";
 
     return `
-      <div class="slip-page" data-filename="${filename}">
+      <div class="slip-page" data-filename="${data.filenameBase || "สลิป"}">
         ${watermarkHtml}
         <div class="slip-content">
           <div class="slip-letterhead">
@@ -151,35 +177,36 @@ const Slip = {
             </div>
           </div>
           <div class="slip-title">
-            <h2>สลิปเงินเดือน</h2>
-            <div class="period">ประจำเดือน ${monthLabel}</div>
+            <h2>${data.docTitle || "สลิปเงินเดือน"}</h2>
+            <div class="period">${data.subtitle || ""}</div>
           </div>
           <div class="slip-recipient">
-            <div><span class="label">ชื่อ-สกุล:</span> ${emp.full_name || "-"}</div>
-            <div><span class="label">ประเภท:</span> ${emp.employee_type || "-"}</div>
-            <div><span class="label">กอง/สำนัก:</span> ${dept.name || "-"}</div>
-            <div><span class="label">งวด:</span> ${p.month}/${p.year}</div>
+            <div><span class="label">ชื่อ-สกุล:</span> ${data.fullName || "-"}</div>
+            <div><span class="label">ประเภท:</span> ${data.employeeType || "-"}</div>
+            <div><span class="label">กอง/สำนัก:</span> ${data.departmentName || "-"}</div>
+            <div><span class="label">${data.metaLabel || "งวด:"}</span> ${data.metaValue || "-"}</div>
           </div>
           <div class="slip-cols">
             <div>
               <div class="slip-section-label">รายการรับ</div>
               <table class="slip-table"><tbody>
                 ${incomeHtml}
-                <tr class="slip-totalrow"><td>รวมรายการรับ</td><td>${Slip.fmt(record.total_income)}</td></tr>
+                <tr class="slip-totalrow"><td>รวมรายการรับ</td><td>${Slip.fmt(data.total_income)}</td></tr>
               </tbody></table>
             </div>
             <div>
               <div class="slip-section-label">รายการหัก</div>
               <table class="slip-table"><tbody>
                 ${deductionHtml}
-                <tr class="slip-totalrow"><td>รวมรายการหัก</td><td>${Slip.fmt(record.total_deduction)}</td></tr>
+                <tr class="slip-totalrow"><td>รวมรายการหัก</td><td>${Slip.fmt(data.total_deduction)}</td></tr>
               </tbody></table>
             </div>
           </div>
           <div class="slip-net">
             <div class="lbl">เงินรับสุทธิ</div>
-            <div class="amt">${Slip.fmt(record.net_pay)} บาท</div>
+            <div class="amt">${Slip.fmt(data.net_pay)} บาท</div>
           </div>
+          ${noteHtml}
           <div class="slip-genat">ออกสลิปเมื่อ ${new Date().toLocaleString("th-TH")}</div>
         </div>
       </div>

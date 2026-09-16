@@ -208,3 +208,37 @@ create policy "org_assets_admin_update" on storage.objects for update using (
 create policy "org_assets_admin_delete" on storage.objects for delete using (
   bucket_id = 'org-assets' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
 );
+
+-- ============================================================
+-- สลิปเงินเดือนที่จัดทำเอง (Manual) แยกอิสระจากข้อมูลที่นำเข้าจาก Excel
+-- ใช้สำหรับกรณีจ่ายเพิ่มเติม/ตกเบิก ที่ไม่ได้อยู่ในรอบนำเข้าปกติ
+-- ============================================================
+create table if not exists public.manual_slips (
+  id bigint generated always as identity primary key,
+  employee_id bigint references public.employees(id),
+  employee_name text not null,
+  employee_type text,
+  department_name text,
+  title text not null,
+  issue_date date not null default current_date,
+  income jsonb not null default '{}',
+  deductions jsonb not null default '{}',
+  total_income numeric(12,2) not null default 0,
+  total_deduction numeric(12,2) not null default 0,
+  net_pay numeric(12,2) not null default 0,
+  note text,
+  created_by uuid references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_manual_slips_employee on public.manual_slips(employee_id);
+create index if not exists idx_manual_slips_issue_date on public.manual_slips(issue_date);
+
+alter table public.manual_slips enable row level security;
+
+create policy "manual_slips_read" on public.manual_slips for select using (auth.role() = 'authenticated');
+create policy "manual_slips_insert" on public.manual_slips for insert with check (auth.role() = 'authenticated');
+create policy "manual_slips_update" on public.manual_slips for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "manual_slips_delete_admin" on public.manual_slips for delete using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);

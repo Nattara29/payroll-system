@@ -11,6 +11,7 @@ const MENU = [
   { id: "import", label: "นำเข้าข้อมูลเงินเดือน" },
   { id: "employees", label: "บุคลากร" },
   { id: "slip", label: "สลิปเงินเดือน" },
+  { id: "manualslip", label: "สลิปเงินเดือน (Manual)" },
   { id: "history", label: "ประวัติการนำเข้า" },
   { id: "settings", label: "ตั้งค่า" },
 ];
@@ -36,6 +37,7 @@ const UI = {
     if (id === "history") History.load();
     if (id === "settings") Settings.load();
     if (id === "slip") Slip.render();
+    if (id === "manualslip") ManualSlip.render();
     if (id === "import") ImportWizard.render();
   },
   toast(msg, isError) {
