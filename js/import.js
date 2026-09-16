@@ -44,14 +44,11 @@ const ImportWizard = (() => {
 
   // ---------- Step 1: อัปโหลด ----------
   function renderStep1() {
-    const years = [];
-    const thisYear = new Date().getFullYear() + 543;
-    for (let y = thisYear + 1; y >= thisYear - 5; y--) years.push(y);
     return `
       <h3 class="section-title">ขั้นตอนที่ 1: อัปโหลดไฟล์ Excel เงินเดือน</h3>
       <p class="section-sub">รองรับไฟล์ที่แต่ละชีทคือหนึ่งกอง/สำนัก (รูปแบบ งด.2)</p>
       <div class="grid grid-3">
-        <div class="field"><label>ปี พ.ศ.</label><select id="wYear">${years.map((y) => `<option ${y === state.year ? "selected" : ""}>${y}</option>`).join("")}</select></div>
+        <div class="field"><label>ปี พ.ศ.</label><input id="wYear" type="number" value="${state.year}" step="1"/></div>
         <div class="field"><label>เดือน</label><select id="wMonth">${Array.from({ length: 12 }, (_, i) => i + 1)
           .map((m) => `<option value="${m}" ${m === state.month ? "selected" : ""}>${m}</option>`)
           .join("")}</select></div>
@@ -91,10 +88,11 @@ const ImportWizard = (() => {
 
   // ---------- Step 2: ตรวจสอบโครงสร้าง ----------
   function renderStep2() {
+    const deptLabel = (a) => (a.departmentName !== a.sheetName ? `${a.departmentName}<br/><span class="helptext" style="margin:0;">ชื่อชีท: ${a.sheetName}</span>` : a.departmentName);
     const rowsHtml = state.analysis
       .map((a) => {
         if (!a.ok) return `<tr><td>${a.sheetName}</td><td colspan="3"><span class="badge badge-red">ข้ามชีทนี้</span> ${a.reason}</td></tr>`;
-        return `<tr><td>${a.sheetName}</td><td><span class="badge badge-green">พร้อมใช้งาน</span></td><td>${a.columns.length} คอลัมน์</td><td>${a.rows.length} คน</td></tr>`;
+        return `<tr><td>${deptLabel(a)}</td><td><span class="badge badge-green">พร้อมใช้งาน</span></td><td>${a.columns.length} คอลัมน์</td><td>${a.rows.length} คน</td></tr>`;
       })
       .join("");
     return `
@@ -232,7 +230,7 @@ const ImportWizard = (() => {
             errors.push(`ยอดรวมรายการหักไม่ตรง (ไฟล์ระบุ ${fileTotal.toLocaleString()} แต่รวมจากรายการย่อยได้ ${total_deduction.toLocaleString()})`);
           }
         }
-        rows.push({ sheet: a.sheetName, name, type, income, deductions, total_income, total_deduction, net_pay, errors });
+        rows.push({ sheet: a.departmentName, name, type, income, deductions, total_income, total_deduction, net_pay, errors });
       }
     }
     // ตรวจซ้ำชื่อในกองเดียวกัน

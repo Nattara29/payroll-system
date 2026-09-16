@@ -2,6 +2,23 @@
 // หน้าที่ของไฟล์นี้คือ "แปลงตารางที่มนุษย์อ่านง่าย" ให้เป็นข้อมูลที่โปรแกรมเข้าใจ
 // แล้วส่งให้ผู้ใช้ยืนยัน/ปรับ mapping อีกครั้งก่อนบันทึกจริง
 const PayrollImport = (() => {
+  // ชื่อชีทใน Excel ถูกจำกัดไว้ไม่เกิน 31 ตัวอักษร ทำให้ชื่อกอง/สำนักยาว ๆ ถูกตัดทอน
+  // แผนที่นี้แปลงชื่อชีทที่ถูกตัดทอน กลับเป็นชื่อเต็มของหน่วยงานจริงในเทศบาลเมืองศรีสัชนาลัย
+  const DEPARTMENT_NAME_MAP = {
+    "งานบริหารทั่วไป": "งานบริหารทั่วไป",
+    "งานบริหารงานคลัง": "งานบริหารงานคลัง",
+    "งานควบคุมภายในและการตรวจสอบภายใ": "งานควบคุมภายในและการตรวจสอบภายใน",
+    "งานบริหารทั่วไปเกี่ยวกับการรักษ": "งานบริหารทั่วไปเกี่ยวกับการรักษาความสงบภายใน",
+    "งานบริหารทั่วไปเกี่ยวกับการศึกษ": "งานบริหารทั่วไปเกี่ยวกับการศึกษา",
+    "งานบริหารทั่วไปเกี่ยวกับสาธารณส": "งานบริหารทั่วไปเกี่ยวกับสาธารณสุข",
+    "งานบริหารทั่วไปเกี่ยวกับเคหะและ": "งานบริหารทั่วไปเกี่ยวกับเคหะและชุมชน",
+    "งานบริหารทั่วไปเกี่ยวกับสร้างคว": "งานบริหารทั่วไปเกี่ยวกับสร้างความเข้มแข็งชุมชน",
+  };
+
+  function resolveDepartmentName(sheetName) {
+    return DEPARTMENT_NAME_MAP[sheetName] || sheetName;
+  }
+
   function cell(sheet, row, col) {
     const addr = XLSX.utils.encode_cell({ r: row - 1, c: col - 1 });
     const c = sheet[addr];
@@ -112,7 +129,7 @@ const PayrollImport = (() => {
       rows.push(record);
     }
 
-    return { sheetName, ok: true, groupRow, subRow, dataStartRow, columns, rows };
+    return { sheetName, departmentName: resolveDepartmentName(sheetName), ok: true, groupRow, subRow, dataStartRow, columns, rows };
   }
 
   function analyzeWorkbook(workbook) {
