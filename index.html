@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/supabase.js"></script>
+<script src="vendor/html2pdf.bundle.min.js"></script>
 <link href="css/style.css" rel="stylesheet"/>
 </head>
 <body>
@@ -95,9 +96,26 @@
 
       <!-- สลิปเงินเดือน -->
       <div class="view" id="view-slip">
-        <div class="card no-print" style="margin-bottom:16px;">
-          <h3 class="section-title">สร้าง/ค้นหาสลิปเงินเดือน</h3>
-          <p class="section-sub">เลือกงวดและพนักงานเพื่อออกสลิป (ฟีเจอร์นี้อยู่ระหว่างพัฒนาเฟสถัดไป — ดู docs/ROADMAP.md)</p>
+        <div class="card no-print" style="margin-bottom:16px;" id="slipSearchCard">
+          <h3 class="section-title">ค้นหาสลิปเงินเดือน</h3>
+          <p class="section-sub">เลือกงวดเงินเดือน แล้วค้นหาพนักงานที่ต้องการออกสลิป</p>
+          <div class="grid grid-3" style="margin-bottom:6px;">
+            <div class="field"><label>งวดเงินเดือน</label><select id="slipPeriod" onchange="Slip.onPeriodChange()"><option value="">-- เลือกงวด --</option></select></div>
+            <div class="field"><label>กอง/สำนัก</label><select id="slipDept" onchange="Slip.search()"><option value="">ทั้งหมด</option></select></div>
+            <div class="field"><label>ค้นหาชื่อ-สกุล</label><input id="slipSearch" placeholder="พิมพ์ชื่อ..." oninput="Slip.search()"/></div>
+          </div>
+          <div class="table-scroll"><table id="slipResultsTable"><thead><tr><th>ชื่อ-สกุล</th><th>ประเภท</th><th>กอง/สำนัก</th><th>รับสุทธิ</th><th></th></tr></thead><tbody><tr><td colspan="5" style="text-align:center;color:var(--text-soft);">เลือกงวดเงินเดือนเพื่อเริ่มค้นหา</td></tr></tbody></table></div>
+        </div>
+
+        <div id="slipViewWrap" style="display:none;">
+          <div class="card no-print" style="margin-bottom:16px;display:flex;gap:10px;justify-content:space-between;align-items:center;">
+            <button class="btn btn-ghost" onclick="Slip.backToSearch()">← กลับไปค้นหา</button>
+            <div style="display:flex;gap:10px;">
+              <button class="btn btn-ghost" onclick="Slip.print()">🖨️ พิมพ์</button>
+              <button class="btn btn-gold" id="slipPdfBtn" onclick="Slip.downloadPdf()">⬇ ดาวน์โหลด PDF</button>
+            </div>
+          </div>
+          <div id="slipPage"></div>
         </div>
       </div>
 
@@ -144,5 +162,6 @@
 <script src="js/app.js"></script>
 <script src="js/import.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/slip.js"></script>
 </body>
 </html>

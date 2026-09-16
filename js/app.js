@@ -35,6 +35,7 @@ const UI = {
     if (id === "employees") Employees.search();
     if (id === "history") History.load();
     if (id === "settings") Settings.load();
+    if (id === "slip") Slip.render();
     if (id === "import") ImportWizard.render();
   },
   toast(msg, isError) {
