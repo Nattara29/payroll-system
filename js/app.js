@@ -33,7 +33,7 @@ const UI = {
     if (id === "dashboard") Dashboard.load();
     if (id === "employees") Employees.search();
     if (id === "history") History.load();
-    if (id === "import" && window.ImportWizard) ImportWizard.render();
+    if (id === "import") ImportWizard.render();
   },
   toast(msg, isError) {
     const t = document.getElementById("toast");
