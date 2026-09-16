@@ -186,10 +186,14 @@ tr:hover td{background:#f7faf8;}
 .slip-genat{margin-top:18px;font-size:10.5px;color:var(--text-soft);text-align:right;}
 
 @media print{
-  #sidebar,#topbar,.no-print{display:none !important;}
-  #content{padding:0;}
+  #sidebar,#topbar,.toast,.no-print{display:none !important;}
+  /* !important จำเป็น: ตอนพิมพ์ Chromium คำนวณความกว้างหน้ากระดาษ A4 (~210mm) ซึ่งตรงกับเงื่อนไข
+     @media(max-width:900px) ด้านล่างด้วย ถ้าไม่บังคับด้วย important กฎ padding ของ breakpoint นั้น
+     (ซึ่งอยู่หลังในไฟล์) จะทับกฎนี้ ทำให้ #content มี padding เหลือ และดันเนื้อหาล้นไปหน้า 2 ที่ว่างเปล่า */
+  #content{padding:0 !important;}
   body{background:#fff;}
-  .slip-page{box-shadow:none;border:none;margin:0;}
+  /* เผื่อระยะเล็กน้อยจากความสูงเต็ม 297mm กันเบราว์เซอร์ปัดเศษพิกเซลจนดันเนื้อหาล้นไปหน้า 2 ที่ว่างเปล่า */
+  .slip-page{box-shadow:none;border:none;margin:0;height:293mm;}
   @page{size:A4;margin:0;}
 }
 

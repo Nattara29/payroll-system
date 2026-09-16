@@ -348,6 +348,24 @@ const ImportWizard = (() => {
         await sb.from("payroll_periods").update({ status: "confirmed", source_filename: state.filename, imported_by: AppState.user.id, imported_at: new Date().toISOString() }).eq("id", period.id);
       }
 
+      // 1.5) บันทึกประวัติการนำเข้าไว้ก่อน เพื่อเอา id ไปติดกับทุกแถวที่บันทึกในรอบนี้
+      // (ทำให้ลบเฉพาะรายการของการนำเข้าครั้งนี้ได้ทีหลัง โดยไม่กระทบข้อมูลจากการนำเข้าครั้งอื่นในงวดเดียวกัน)
+      const badCount = state.parsedRows.length - okRows.length;
+      const { data: logRow, error: logError } = await sb
+        .from("import_logs")
+        .insert({
+          payroll_period_id: period.id,
+          filename: state.filename,
+          row_count: state.parsedRows.length,
+          error_count: badCount,
+          status: badCount === 0 ? "success" : "partial",
+          created_by: AppState.user.id,
+        })
+        .select("id")
+        .single();
+      if (logError) throw logError;
+      const importLogId = logRow.id;
+
       // 2) กอง/สำนัก ที่ยังไม่มี
       const sheetNames = Array.from(new Set(okRows.map((r) => r.sheet)));
       const missing = sheetNames.filter((n) => !AppState.departments.some((d) => d.name === n));
@@ -388,6 +406,7 @@ const ImportWizard = (() => {
           total_income: r.total_income,
           total_deduction: r.total_deduction,
           net_pay: r.net_pay,
+          import_log_id: importLogId,
         };
       });
       const { error: recError } = await sb.from("payroll_records").upsert(records, { onConflict: "payroll_period_id,employee_id" });
@@ -398,17 +417,6 @@ const ImportWizard = (() => {
       if (tplName) {
         await sb.from("column_mapping_templates").insert({ name: tplName, mapping: state.mapping, created_by: AppState.user.id });
       }
-
-      // 6) log การนำเข้า
-      const badCount = state.parsedRows.length - okRows.length;
-      await sb.from("import_logs").insert({
-        payroll_period_id: period.id,
-        filename: state.filename,
-        row_count: state.parsedRows.length,
-        error_count: badCount,
-        status: badCount === 0 ? "success" : "partial",
-        created_by: AppState.user.id,
-      });
 
       state.savedCount = okRows.length;
       state.step = 6;

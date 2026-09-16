@@ -80,8 +80,14 @@ create table if not exists public.import_logs (
   created_at timestamptz not null default now()
 );
 
+-- เก็บว่ายอดเงินเดือนแต่ละแถวมาจากการนำเข้าครั้งไหน เพื่อให้ลบเฉพาะรายการของการนำเข้าที่ผิด
+-- ได้โดยไม่ลบข้อมูลทั้งงวด (งวดเดียวอาจมีข้อมูลจากหลายการนำเข้าปะปนกัน)
+alter table public.payroll_records
+  add column if not exists import_log_id bigint references public.import_logs(id) on delete set null;
+
 create index if not exists idx_payroll_records_period on public.payroll_records(payroll_period_id);
 create index if not exists idx_payroll_records_employee on public.payroll_records(employee_id);
+create index if not exists idx_payroll_records_import_log on public.payroll_records(import_log_id);
 create index if not exists idx_employees_department on public.employees(department_id);
 
 -- ============================================================
@@ -116,7 +122,12 @@ create policy "mapping_read" on public.column_mapping_templates for select using
 create policy "mapping_write" on public.column_mapping_templates for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 create policy "records_read" on public.payroll_records for select using (auth.role() = 'authenticated');
-create policy "records_write" on public.payroll_records for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "records_insert" on public.payroll_records for insert with check (auth.role() = 'authenticated');
+create policy "records_update" on public.payroll_records for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- ลบข้อมูลเงินเดือนได้เฉพาะ admin เท่านั้น (ใช้ตอนลบรายการนำเข้าที่ผิดจากหน้าประวัติการนำเข้า)
+create policy "records_delete_admin" on public.payroll_records for delete using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
 
 create policy "logs_read" on public.import_logs for select using (auth.role() = 'authenticated');
 create policy "logs_write" on public.import_logs for insert with check (auth.role() = 'authenticated');

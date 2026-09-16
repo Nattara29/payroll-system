@@ -214,6 +214,8 @@ const Employees = {
 };
 
 const History = {
+  rows: [], // แคชแถวล่าสุดไว้ ใช้ตอนลบเพื่อไม่ต้องฝังชื่อไฟล์/งวดลงใน onclick โดยตรง
+
   async load() {
     const isAdmin = AppState.profile && AppState.profile.role === "admin";
     const { data, error } = await sb
@@ -225,17 +227,15 @@ const History = {
       tbody.innerHTML = `<tr><td colspan="7">โหลดข้อมูลไม่สำเร็จ: ${error.message}</td></tr>`;
       return;
     }
-    if (!data || data.length === 0) {
+    History.rows = data || [];
+    if (History.rows.length === 0) {
       tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-soft);">ยังไม่มีประวัติการนำเข้า</td></tr>';
       return;
     }
-    tbody.innerHTML = data
+    tbody.innerHTML = History.rows
       .map((r) => {
         const periodLabel = r.payroll_periods ? r.payroll_periods.month + "/" + r.payroll_periods.year : "-";
-        const deleteBtn =
-          isAdmin && r.payroll_period_id
-            ? `<button class="btn btn-danger btn-sm" onclick="History.deletePeriod(${r.payroll_period_id}, '${periodLabel}')">ลบงวดนี้</button>`
-            : "";
+        const deleteBtn = isAdmin ? `<button class="btn btn-danger btn-sm" onclick="History.deleteImport(${r.id})">ลบรายการนี้</button>` : "";
         return `<tr>
         <td>${new Date(r.created_at).toLocaleString("th-TH")}</td>
         <td>${r.filename || "-"}</td>
@@ -248,14 +248,29 @@ const History = {
       })
       .join("");
   },
-  async deletePeriod(periodId, periodLabel) {
-    const ok = confirm(
-      `ลบข้อมูลเงินเดือนงวด ${periodLabel} ทั้งงวด?\n\nจะลบข้อมูลเงินเดือนของทุกคนในงวดนี้ และประวัติการนำเข้าที่เกี่ยวข้องทั้งหมด (ข้อมูลบุคลากรเองจะไม่ถูกลบ) การกระทำนี้ย้อนกลับไม่ได้`
-    );
+
+  // ลบเฉพาะรายการเงินเดือนที่ "ยังเป็นของ" การนำเข้าครั้งนี้ (import_log_id ตรงกัน)
+  // ถ้าคนไหนถูกเขียนทับด้วยการนำเข้าครั้งหลังไปแล้ว จะไม่ถูกลบ เพราะข้อมูลปัจจุบันเป็นของครั้งหลังแล้ว
+  // งวดเงินเดือน (payroll_periods) จะไม่ถูกลบ แม้ว่าการนำเข้าครั้งอื่นในงวดเดียวกันจะยังอยู่
+  async deleteImport(logId) {
+    const row = History.rows.find((r) => r.id === logId);
+    const periodLabel = row && row.payroll_periods ? row.payroll_periods.month + "/" + row.payroll_periods.year : "-";
+    const filename = (row && row.filename) || "-";
+
+    const { count } = await sb.from("payroll_records").select("*", { count: "exact", head: true }).eq("import_log_id", logId);
+    const n = count || 0;
+    const detail =
+      n > 0
+        ? `จะลบข้อมูลเงินเดือน ${n} คนที่ยังเป็นของการนำเข้าครั้งนี้อยู่ (คนที่ถูกเขียนทับด้วยการนำเข้าครั้งหลังไปแล้วจะไม่ถูกลบ)`
+        : `การนำเข้านี้ไม่มีข้อมูลเงินเดือนที่ยังใช้งานอยู่แล้ว (ถูกเขียนทับด้วยการนำเข้าครั้งหลังไปหมดแล้ว) จะลบแค่ประวัตินี้ออก`;
+    const ok = confirm(`ลบรายการนำเข้านี้?\n\nไฟล์: ${filename}\nงวด: ${periodLabel}\n\n${detail}\n\nข้อมูลบุคลากรจะไม่ถูกลบ การกระทำนี้ย้อนกลับไม่ได้`);
     if (!ok) return;
-    const { error } = await sb.from("payroll_periods").delete().eq("id", periodId);
-    if (error) return UI.toast("ลบไม่สำเร็จ: " + error.message, true);
-    UI.toast(`ลบข้อมูลงวด ${periodLabel} เรียบร้อยแล้ว`);
+
+    const { error: delRecErr } = await sb.from("payroll_records").delete().eq("import_log_id", logId);
+    if (delRecErr) return UI.toast("ลบไม่สำเร็จ: " + delRecErr.message, true);
+    const { error: delLogErr } = await sb.from("import_logs").delete().eq("id", logId);
+    if (delLogErr) return UI.toast("ลบไม่สำเร็จ: " + delLogErr.message, true);
+    UI.toast("ลบรายการนำเข้าเรียบร้อยแล้ว");
     History.load();
   },
 };
