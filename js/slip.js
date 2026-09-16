@@ -97,16 +97,20 @@ const Slip = {
     btn.disabled = true;
     btn.textContent = "กำลังสร้าง PDF...";
     try {
-      await html2pdf()
-        .set({
-          margin: 0,
-          filename: (el.dataset.filename || "สลิปเงินเดือน") + ".pdf",
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
-          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        })
-        .from(el)
-        .save();
+      // สลิปออกแบบให้พอดี 1 หน้า A4 เสมอ (.slip-page สูงคงที่ 297mm) แต่ html2pdf บางครั้ง
+      // ปัดเศษพิกเซลผิดพลาดจนสร้างหน้าที่ 2 ว่าง ๆ ตามมา จึงต้องลบหน้าเกินออกเองให้ชัวร์
+      const worker = html2pdf().set({
+        margin: 0,
+        filename: (el.dataset.filename || "สลิปเงินเดือน") + ".pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: "avoid-all" },
+      }).from(el);
+      await worker.toPdf();
+      const pdf = worker.prop.pdf;
+      for (let i = pdf.internal.getNumberOfPages(); i > 1; i--) pdf.deletePage(i);
+      await worker.save();
     } catch (err) {
       UI.toast("สร้าง PDF ไม่สำเร็จ: " + err.message, true);
     } finally {
@@ -132,11 +136,6 @@ const Slip = {
 
     const incomeHtml = incomeRows.length ? incomeRows.map(([label, v]) => `<tr><td>${label}</td><td>${Slip.fmt(v)}</td></tr>`).join("") : `<tr class="empty-row"><td colspan="2">- ไม่มีรายการ -</td></tr>`;
     const deductionHtml = deductionRows.length ? deductionRows.map(([label, v]) => `<tr><td>${label}</td><td>${Slip.fmt(v)}</td></tr>`).join("") : `<tr class="empty-row"><td colspan="2">- ไม่มีรายการ -</td></tr>`;
-
-    const signatureBlock = `<div class="slip-sign">
-        <div><div class="line">ผู้รับเงิน</div></div>
-        <div><div class="line">${org && org.director_name ? org.director_name + (org.director_title ? "<br/>" + org.director_title : "") : "เจ้าหน้าที่การเงิน"}</div></div>
-      </div>`;
 
     const filename = `สลิปเงินเดือน_${emp.full_name || ""}_${p.month}-${p.year}`.replace(/\s+/g, "");
 
@@ -181,7 +180,6 @@ const Slip = {
             <div class="lbl">เงินรับสุทธิ</div>
             <div class="amt">${Slip.fmt(record.net_pay)} บาท</div>
           </div>
-          ${signatureBlock}
           <div class="slip-genat">ออกสลิปเมื่อ ${new Date().toLocaleString("th-TH")}</div>
         </div>
       </div>
