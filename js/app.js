@@ -13,7 +13,7 @@ const MENU = [
   { id: "slip", label: "สลิปเงินเดือน" },
   { id: "manualslip", label: "สลิปเงินเดือน (Manual)" },
   { id: "history", label: "ประวัติการนำเข้า" },
-  { id: "settings", label: "ตั้งค่า" },
+  { id: "settings", label: "ตั้งค่า", adminOnly: true },
   { id: "users", label: "จัดการผู้ใช้งาน", adminOnly: true },
 ];
 
@@ -67,6 +67,8 @@ const Auth = {
       document.querySelector(".auth-title").textContent = "สมัครใช้งาน";
       document.getElementById("toggleSignupLink").parentElement.firstChild.textContent = "มีบัญชีอยู่แล้ว? ";
       document.getElementById("toggleSignupLink").textContent = "เข้าสู่ระบบ";
+      document.getElementById("authSignupNotice").style.display = "block";
+      document.getElementById("authSubmitBtn").textContent = "สมัครใช้งาน";
       if (!nameField) {
         nameField = document.createElement("div");
         nameField.className = "field";
@@ -78,6 +80,8 @@ const Auth = {
       document.querySelector(".auth-title").textContent = "ระบบเงินเดือนเทศบาล";
       document.getElementById("toggleSignupLink").parentElement.firstChild.textContent = "ยังไม่มีบัญชี? ";
       document.getElementById("toggleSignupLink").textContent = "สมัครใช้งาน";
+      document.getElementById("authSignupNotice").style.display = "none";
+      document.getElementById("authSubmitBtn").textContent = "เข้าสู่ระบบ";
       if (nameField) nameField.remove();
     }
   },
@@ -97,13 +101,37 @@ const Auth = {
 
     if (AppState.authMode === "signup") {
       const full_name = (document.getElementById("loginName") || {}).value || email;
-      const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name } } });
+      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name } } });
       if (error) return Auth.showError(error.message);
+      if (!data.session) {
+        // โปรเจกต์นี้บังคับยืนยันอีเมลก่อนเข้าสู่ระบบ (ค่าเริ่มต้นของ Supabase)
+        return Auth.showSignupSuccess(email);
+      }
+      // ถ้าปิด "Confirm email" ไว้ที่ Supabase, signUp จะให้ session มาทันที เข้าสู่ระบบได้เลย
       UI.toast("สมัครสำเร็จ กำลังเข้าสู่ระบบ...");
+      return boot();
     }
     const { error } = await sb.auth.signInWithPassword({ email, password });
     if (error) return Auth.showError(error.message);
     await boot();
+  },
+  showSignupSuccess(email) {
+    document.getElementById("authFormFields").style.display = "none";
+    document.getElementById("authSignupEmail").textContent = email;
+    document.getElementById("authSignupSuccess").style.display = "block";
+  },
+  backToLoginAfterSignup() {
+    document.getElementById("authSignupSuccess").style.display = "none";
+    document.getElementById("authFormFields").style.display = "block";
+    AppState.authMode = "login";
+    document.querySelector(".auth-title").textContent = "ระบบเงินเดือนเทศบาล";
+    document.getElementById("toggleSignupLink").parentElement.firstChild.textContent = "ยังไม่มีบัญชี? ";
+    document.getElementById("toggleSignupLink").textContent = "สมัครใช้งาน";
+    document.getElementById("authSignupNotice").style.display = "none";
+    document.getElementById("authSubmitBtn").textContent = "เข้าสู่ระบบ";
+    const nameField = document.getElementById("loginNameField");
+    if (nameField) nameField.remove();
+    document.getElementById("loginPassword").value = "";
   },
   async logout() {
     await sb.auth.signOut();
