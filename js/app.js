@@ -212,31 +212,48 @@ const Employees = {
 
 const History = {
   async load() {
+    const isAdmin = AppState.profile && AppState.profile.role === "admin";
     const { data, error } = await sb
       .from("import_logs")
-      .select("filename,row_count,error_count,status,created_at,payroll_periods(year,month)")
+      .select("id,filename,row_count,error_count,status,created_at,payroll_period_id,payroll_periods(year,month)")
       .order("created_at", { ascending: false });
     const tbody = document.querySelector("#historyTable tbody");
     if (error) {
-      tbody.innerHTML = `<tr><td colspan="6">โหลดข้อมูลไม่สำเร็จ: ${error.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7">โหลดข้อมูลไม่สำเร็จ: ${error.message}</td></tr>`;
       return;
     }
     if (!data || data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-soft);">ยังไม่มีประวัติการนำเข้า</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-soft);">ยังไม่มีประวัติการนำเข้า</td></tr>';
       return;
     }
     tbody.innerHTML = data
-      .map(
-        (r) => `<tr>
+      .map((r) => {
+        const periodLabel = r.payroll_periods ? r.payroll_periods.month + "/" + r.payroll_periods.year : "-";
+        const deleteBtn =
+          isAdmin && r.payroll_period_id
+            ? `<button class="btn btn-danger btn-sm" onclick="History.deletePeriod(${r.payroll_period_id}, '${periodLabel}')">ลบงวดนี้</button>`
+            : "";
+        return `<tr>
         <td>${new Date(r.created_at).toLocaleString("th-TH")}</td>
         <td>${r.filename || "-"}</td>
-        <td>${r.payroll_periods ? r.payroll_periods.month + "/" + r.payroll_periods.year : "-"}</td>
+        <td>${periodLabel}</td>
         <td>${r.row_count}</td>
         <td>${r.error_count}</td>
         <td><span class="badge ${r.status === "success" ? "badge-green" : r.status === "partial" ? "badge-amber" : "badge-red"}">${r.status}</span></td>
-      </tr>`
-      )
+        <td>${deleteBtn}</td>
+      </tr>`;
+      })
       .join("");
+  },
+  async deletePeriod(periodId, periodLabel) {
+    const ok = confirm(
+      `ลบข้อมูลเงินเดือนงวด ${periodLabel} ทั้งงวด?\n\nจะลบข้อมูลเงินเดือนของทุกคนในงวดนี้ และประวัติการนำเข้าที่เกี่ยวข้องทั้งหมด (ข้อมูลบุคลากรเองจะไม่ถูกลบ) การกระทำนี้ย้อนกลับไม่ได้`
+    );
+    if (!ok) return;
+    const { error } = await sb.from("payroll_periods").delete().eq("id", periodId);
+    if (error) return UI.toast("ลบไม่สำเร็จ: " + error.message, true);
+    UI.toast(`ลบข้อมูลงวด ${periodLabel} เรียบร้อยแล้ว`);
+    History.load();
   },
 };
 

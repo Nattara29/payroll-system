@@ -70,7 +70,7 @@ create table if not exists public.payroll_records (
 -- ประวัติการนำเข้าไฟล์ Excel
 create table if not exists public.import_logs (
   id bigint generated always as identity primary key,
-  payroll_period_id bigint references public.payroll_periods(id),
+  payroll_period_id bigint references public.payroll_periods(id) on delete cascade,
   filename text,
   row_count int not null default 0,
   error_count int not null default 0,
@@ -105,7 +105,12 @@ create policy "employees_read" on public.employees for select using (auth.role()
 create policy "employees_write" on public.employees for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 create policy "periods_read" on public.payroll_periods for select using (auth.role() = 'authenticated');
-create policy "periods_write" on public.payroll_periods for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "periods_insert" on public.payroll_periods for insert with check (auth.role() = 'authenticated');
+create policy "periods_update" on public.payroll_periods for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- ลบงวดเงินเดือนได้เฉพาะผู้ดูแลระบบ (admin) เท่านั้น เพราะจะพ่วงลบข้อมูลเงินเดือนทั้งงวด
+create policy "periods_delete_admin" on public.payroll_periods for delete using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
 
 create policy "mapping_read" on public.column_mapping_templates for select using (auth.role() = 'authenticated');
 create policy "mapping_write" on public.column_mapping_templates for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
@@ -115,6 +120,9 @@ create policy "records_write" on public.payroll_records for all using (auth.role
 
 create policy "logs_read" on public.import_logs for select using (auth.role() = 'authenticated');
 create policy "logs_write" on public.import_logs for insert with check (auth.role() = 'authenticated');
+create policy "logs_delete_admin" on public.import_logs for delete using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
 
 -- เมื่อมีผู้ใช้สมัคร/ถูกสร้างใน auth.users ให้สร้างแถว profile อัตโนมัติ
 create or replace function public.handle_new_user()
