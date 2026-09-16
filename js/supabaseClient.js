@@ -4,4 +4,6 @@
 const SUPABASE_URL = "https://frdhleeorksnifwkvgul.supabase.co";
 const SUPABASE_KEY = "sb_publishable_3vnnF6DikFtQmrk9jXzcmg_P0tOF3J8";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// ตั้งชื่อตัวแปรว่า sb (ไม่ใช้ชื่อ "supabase") เพราะไลบรารี UMD ของ Supabase
+// สร้างตัวแปร global ชื่อ "supabase" ไว้ก่อนแล้ว ถ้าตั้งชื่อซ้ำจะ error "already been declared"
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);

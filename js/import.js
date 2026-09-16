@@ -134,7 +134,7 @@ const ImportWizard = (() => {
         state.mapping[col.label] = { kind, key: col.label };
       }
     }
-    const { data: templates } = await supabase.from("column_mapping_templates").select("id,name,mapping").order("created_at", { ascending: false });
+    const { data: templates } = await sb.from("column_mapping_templates").select("id,name,mapping").order("created_at", { ascending: false });
     state.templates = templates || [];
 
     const kindOptions = (current) =>
@@ -306,9 +306,9 @@ const ImportWizard = (() => {
       const okRows = state.parsedRows.filter((r) => r.errors.length === 0);
 
       // 1) งวดเงินเดือน
-      let { data: period } = await supabase.from("payroll_periods").select("id").eq("year", state.year).eq("month", state.month).maybeSingle();
+      let { data: period } = await sb.from("payroll_periods").select("id").eq("year", state.year).eq("month", state.month).maybeSingle();
       if (!period) {
-        const { data: inserted, error } = await supabase
+        const { data: inserted, error } = await sb
           .from("payroll_periods")
           .insert({ year: state.year, month: state.month, status: "confirmed", source_filename: state.filename, imported_by: AppState.user.id, imported_at: new Date().toISOString() })
           .select("id")
@@ -316,20 +316,20 @@ const ImportWizard = (() => {
         if (error) throw error;
         period = inserted;
       } else {
-        await supabase.from("payroll_periods").update({ status: "confirmed", source_filename: state.filename, imported_by: AppState.user.id, imported_at: new Date().toISOString() }).eq("id", period.id);
+        await sb.from("payroll_periods").update({ status: "confirmed", source_filename: state.filename, imported_by: AppState.user.id, imported_at: new Date().toISOString() }).eq("id", period.id);
       }
 
       // 2) กอง/สำนัก ที่ยังไม่มี
       const sheetNames = Array.from(new Set(okRows.map((r) => r.sheet)));
       const missing = sheetNames.filter((n) => !AppState.departments.some((d) => d.name === n));
       if (missing.length) {
-        await supabase.from("departments").insert(missing.map((name) => ({ name })));
+        await sb.from("departments").insert(missing.map((name) => ({ name })));
         await loadDepartments();
       }
       const deptIdByName = new Map(AppState.departments.map((d) => [d.name, d.id]));
 
       // 3) พนักงาน: หา/สร้าง
-      const { data: existingEmployees } = await supabase.from("employees").select("id,full_name,department_id");
+      const { data: existingEmployees } = await sb.from("employees").select("id,full_name,department_id");
       const empKey = (name, deptId) => name + "||" + deptId;
       const empMap = new Map((existingEmployees || []).map((e) => [empKey(e.full_name, e.department_id), e.id]));
 
@@ -342,7 +342,7 @@ const ImportWizard = (() => {
         }
       }
       if (toCreate.length) {
-        const { data: created, error } = await supabase.from("employees").insert(toCreate).select("id,full_name,department_id");
+        const { data: created, error } = await sb.from("employees").insert(toCreate).select("id,full_name,department_id");
         if (error) throw error;
         for (const e of created) empMap.set(empKey(e.full_name, e.department_id), e.id);
       }
@@ -361,18 +361,18 @@ const ImportWizard = (() => {
           net_pay: r.net_pay,
         };
       });
-      const { error: recError } = await supabase.from("payroll_records").upsert(records, { onConflict: "payroll_period_id,employee_id" });
+      const { error: recError } = await sb.from("payroll_records").upsert(records, { onConflict: "payroll_period_id,employee_id" });
       if (recError) throw recError;
 
       // 5) บันทึกแม่แบบ mapping ถ้าตั้งชื่อไว้
       const tplName = (document.getElementById("wTemplateName") || {}).value;
       if (tplName) {
-        await supabase.from("column_mapping_templates").insert({ name: tplName, mapping: state.mapping, created_by: AppState.user.id });
+        await sb.from("column_mapping_templates").insert({ name: tplName, mapping: state.mapping, created_by: AppState.user.id });
       }
 
       // 6) log การนำเข้า
       const badCount = state.parsedRows.length - okRows.length;
-      await supabase.from("import_logs").insert({
+      await sb.from("import_logs").insert({
         payroll_period_id: period.id,
         filename: state.filename,
         row_count: state.parsedRows.length,

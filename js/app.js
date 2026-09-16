@@ -89,16 +89,16 @@ const Auth = {
 
     if (AppState.authMode === "signup") {
       const full_name = (document.getElementById("loginName") || {}).value || email;
-      const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name } } });
+      const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name } } });
       if (error) return Auth.showError(error.message);
       UI.toast("สมัครสำเร็จ กำลังเข้าสู่ระบบ...");
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await sb.auth.signInWithPassword({ email, password });
     if (error) return Auth.showError(error.message);
     await boot();
   },
   async logout() {
-    await supabase.auth.signOut();
+    await sb.auth.signOut();
     location.reload();
   },
 };
@@ -108,9 +108,9 @@ const Dashboard = {
     const el = document.getElementById("dashStats");
     el.innerHTML = '<div class="card">กำลังโหลด...</div>';
     const [{ count: empCount }, { count: depCount }, { count: periodCount }] = await Promise.all([
-      supabase.from("employees").select("*", { count: "exact", head: true }).eq("active", true),
-      supabase.from("departments").select("*", { count: "exact", head: true }),
-      supabase.from("payroll_periods").select("*", { count: "exact", head: true }),
+      sb.from("employees").select("*", { count: "exact", head: true }).eq("active", true),
+      sb.from("departments").select("*", { count: "exact", head: true }),
+      sb.from("payroll_periods").select("*", { count: "exact", head: true }),
     ]);
 
     const stats = [
@@ -127,7 +127,7 @@ const Dashboard = {
       )
       .join("");
 
-    const { data: periods } = await supabase
+    const { data: periods } = await sb
       .from("payroll_periods")
       .select("id,year,month,status,imported_at")
       .order("year", { ascending: false })
@@ -141,7 +141,7 @@ const Dashboard = {
     }
     const rows = await Promise.all(
       periods.map(async (p) => {
-        const { data: recs } = await supabase.from("payroll_records").select("net_pay").eq("payroll_period_id", p.id);
+        const { data: recs } = await sb.from("payroll_records").select("net_pay").eq("payroll_period_id", p.id);
         const count = recs ? recs.length : 0;
         const sum = recs ? recs.reduce((a, r) => a + Number(r.net_pay || 0), 0) : 0;
         return { p, count, sum };
@@ -164,7 +164,7 @@ const Dashboard = {
 const Employees = {
   async search() {
     const q = document.getElementById("empSearch").value.trim();
-    let query = supabase.from("employees").select("id,full_name,employee_type,active,departments(name)").order("full_name").limit(100);
+    let query = sb.from("employees").select("id,full_name,employee_type,active,departments(name)").order("full_name").limit(100);
     if (q) query = query.ilike("full_name", `%${q}%`);
     const { data, error } = await query;
     const tbody = document.querySelector("#empTable tbody");
@@ -189,7 +189,7 @@ const Employees = {
       .join("");
   },
   async viewHistory(employeeId, name) {
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from("payroll_records")
       .select("net_pay,total_income,total_deduction,payroll_periods(year,month)")
       .eq("employee_id", employeeId)
@@ -212,7 +212,7 @@ const Employees = {
 
 const History = {
   async load() {
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from("import_logs")
       .select("filename,row_count,error_count,status,created_at,payroll_periods(year,month)")
       .order("created_at", { ascending: false });
@@ -241,13 +241,13 @@ const History = {
 };
 
 async function loadDepartments() {
-  const { data } = await supabase.from("departments").select("id,name").order("name");
+  const { data } = await sb.from("departments").select("id,name").order("name");
   AppState.departments = data || [];
   return AppState.departments;
 }
 
 async function boot() {
-  const { data } = await supabase.auth.getSession();
+  const { data } = await sb.auth.getSession();
   const session = data.session;
   if (!session) {
     document.getElementById("authScreen").style.display = "flex";
@@ -255,7 +255,7 @@ async function boot() {
     return;
   }
   AppState.user = session.user;
-  const { data: profile } = await supabase.from("profiles").select("full_name,role").eq("id", session.user.id).single();
+  const { data: profile } = await sb.from("profiles").select("full_name,role").eq("id", session.user.id).single();
   AppState.profile = profile;
   document.getElementById("whoAmI").textContent = profile ? `${profile.full_name} (${profile.role === "admin" ? "ผู้ดูแลระบบ" : "เจ้าหน้าที่"})` : session.user.email;
 
