@@ -42,6 +42,11 @@ const ImportWizard = (() => {
     render();
   }
 
+  function cancelImport() {
+    if (!confirm("ยกเลิกการนำเข้าไฟล์นี้และเริ่มใหม่ทั้งหมด? ข้อมูลที่ยังไม่ได้กด \"ยืนยันนำเข้าข้อมูล\" จะยังไม่ถูกบันทึกอยู่แล้ว")) return;
+    reset();
+  }
+
   // ---------- Step 1: อัปโหลด ----------
   function renderStep1() {
     return `
@@ -55,6 +60,7 @@ const ImportWizard = (() => {
         <div class="field"><label>ไฟล์ Excel (.xlsx)</label><input id="wFile" type="file" accept=".xlsx,.xls"/></div>
       </div>
       <div class="helptext" id="wUploadStatus"></div>
+      <div id="wFileActions" style="margin-top:8px;"></div>
       <div class="modal-foot" style="padding:16px 0 0 0;border:none;">
         <button class="btn btn-primary" id="wNext1" disabled onclick="ImportWizard.toStep2()">ถัดไป: ตรวจสอบโครงสร้าง</button>
       </div>
@@ -64,19 +70,32 @@ const ImportWizard = (() => {
   async function onFileChosen(e) {
     const file = e.target.files[0];
     const statusEl = document.getElementById("wUploadStatus");
+    const actionsEl = document.getElementById("wFileActions");
     if (!file) return;
     statusEl.textContent = "กำลังอ่านไฟล์...";
+    actionsEl.innerHTML = "";
     try {
       const buf = await file.arrayBuffer();
       const workbook = XLSX.read(buf, { type: "array" });
       state.analysis = PayrollImport.analyzeWorkbook(workbook);
       state.filename = file.name;
       const okSheets = state.analysis.filter((a) => a.ok && a.rows.length > 0);
-      statusEl.textContent = `อ่านไฟล์สำเร็จ: พบ ${state.analysis.length} ชีท (ใช้งานได้ ${okSheets.length} ชีท)`;
+      statusEl.textContent = `อ่านไฟล์สำเร็จ: ${file.name} — พบ ${state.analysis.length} ชีท (ใช้งานได้ ${okSheets.length} ชีท)`;
       document.getElementById("wNext1").disabled = okSheets.length === 0;
+      actionsEl.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="ImportWizard.clearFile()">✕ ไฟล์นี้ไม่ใช่ที่ต้องการ ยกเลิกแล้วเลือกใหม่</button>`;
     } catch (err) {
       statusEl.textContent = "อ่านไฟล์ไม่สำเร็จ: " + err.message;
     }
+  }
+
+  function clearFile() {
+    state.analysis = [];
+    state.filename = "";
+    const fileInput = document.getElementById("wFile");
+    if (fileInput) fileInput.value = "";
+    document.getElementById("wUploadStatus").textContent = "";
+    document.getElementById("wFileActions").innerHTML = "";
+    document.getElementById("wNext1").disabled = true;
   }
 
   function toStep2() {
@@ -99,9 +118,12 @@ const ImportWizard = (() => {
       <h3 class="section-title">ขั้นตอนที่ 2: ตรวจสอบโครงสร้างไฟล์</h3>
       <p class="section-sub">ไฟล์: ${state.filename} — งวด ${state.month}/${state.year}</p>
       <div class="table-scroll"><table><thead><tr><th>ชีท (กอง/สำนัก)</th><th>สถานะ</th><th>คอลัมน์ที่พบ</th><th>จำนวนแถวข้อมูล</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
-      <div class="modal-foot" style="padding:16px 0 0 0;border:none;">
-        <button class="btn btn-ghost" onclick="ImportWizard.toStep(1)">ย้อนกลับ</button>
-        <button class="btn btn-primary" onclick="ImportWizard.toStep3()">ถัดไป: Mapping คอลัมน์</button>
+      <div class="modal-foot" style="padding:16px 0 0 0;border:none;justify-content:space-between;">
+        <button class="btn btn-danger" onclick="ImportWizard.cancelImport()">ยกเลิกการนำเข้านี้</button>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" onclick="ImportWizard.toStep(1)">ย้อนกลับ</button>
+          <button class="btn btn-primary" onclick="ImportWizard.toStep3()">ถัดไป: Mapping คอลัมน์</button>
+        </div>
       </div>
     `;
   }
@@ -166,9 +188,12 @@ const ImportWizard = (() => {
           .join("")}
       </div>
       <div class="field" style="margin-top:16px;"><label>บันทึกเป็นแม่แบบ (ไม่บังคับ)</label><input id="wTemplateName" placeholder="เช่น mapping มาตรฐานเทศบาล"/></div>
-      <div class="modal-foot" style="padding:16px 0 0 0;border:none;">
-        <button class="btn btn-ghost" onclick="ImportWizard.toStep(2)">ย้อนกลับ</button>
-        <button class="btn btn-primary" onclick="ImportWizard.toStep4()">ถัดไป: ตรวจสอบข้อมูล</button>
+      <div class="modal-foot" style="padding:16px 0 0 0;border:none;justify-content:space-between;">
+        <button class="btn btn-danger" onclick="ImportWizard.cancelImport()">ยกเลิกการนำเข้านี้</button>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" onclick="ImportWizard.toStep(2)">ย้อนกลับ</button>
+          <button class="btn btn-primary" onclick="ImportWizard.toStep4()">ถัดไป: ตรวจสอบข้อมูล</button>
+        </div>
       </div>
     `;
   }
@@ -268,9 +293,12 @@ const ImportWizard = (() => {
               .join("")}</tbody></table></div>`
           : '<p class="helptext">ไม่พบข้อผิดพลาด ✅</p>'
       }
-      <div class="modal-foot" style="padding:16px 0 0 0;border:none;">
-        <button class="btn btn-ghost" onclick="ImportWizard.toStep(3)">ย้อนกลับ</button>
-        <button class="btn btn-primary" ${okRows.length === 0 ? "disabled" : ""} onclick="ImportWizard.toStep(5)">ถัดไป: Preview</button>
+      <div class="modal-foot" style="padding:16px 0 0 0;border:none;justify-content:space-between;">
+        <button class="btn btn-danger" onclick="ImportWizard.cancelImport()">ยกเลิกการนำเข้านี้</button>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" onclick="ImportWizard.toStep(3)">ย้อนกลับ</button>
+          <button class="btn btn-primary" ${okRows.length === 0 ? "disabled" : ""} onclick="ImportWizard.toStep(5)">ถัดไป: Preview</button>
+        </div>
       </div>
     `;
   }
@@ -288,9 +316,12 @@ const ImportWizard = (() => {
           )
           .join("")}
       </tbody></table></div>
-      <div class="modal-foot" style="padding:16px 0 0 0;border:none;">
-        <button class="btn btn-ghost" onclick="ImportWizard.toStep(4)">ย้อนกลับ</button>
-        <button class="btn btn-gold" id="wConfirmBtn" onclick="ImportWizard.confirmImport()">ยืนยันนำเข้าข้อมูล</button>
+      <div class="modal-foot" style="padding:16px 0 0 0;border:none;justify-content:space-between;">
+        <button class="btn btn-danger" onclick="ImportWizard.cancelImport()">ยกเลิกการนำเข้านี้</button>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" onclick="ImportWizard.toStep(4)">ย้อนกลับ</button>
+          <button class="btn btn-gold" id="wConfirmBtn" onclick="ImportWizard.confirmImport()">ยืนยันนำเข้าข้อมูล</button>
+        </div>
       </div>
     `;
   }
@@ -408,5 +439,5 @@ const ImportWizard = (() => {
     render();
   }
 
-  return { render, reset, onFileChosen, toStep2, toStep3, toStep4, toStep, updateMapping, loadTemplate, confirmImport };
+  return { render, reset, cancelImport, onFileChosen, clearFile, toStep2, toStep3, toStep4, toStep, updateMapping, loadTemplate, confirmImport };
 })();
