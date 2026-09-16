@@ -8,7 +8,9 @@
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null,
+  email text,
   role text not null default 'staff' check (role in ('admin','staff')),
+  active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -91,7 +93,7 @@ create index if not exists idx_payroll_records_import_log on public.payroll_reco
 create index if not exists idx_employees_department on public.employees(department_id);
 
 -- ============================================================
--- Row Level Security: ต้องล็อกอินก่อนถึงจะเข้าถึงข้อมูลได้
+-- Row Level Security: ต้องล็อกอินและบัญชียังเปิดใช้งานอยู่ (active) ถึงจะเข้าถึงข้อมูลได้
 -- ============================================================
 alter table public.profiles enable row level security;
 alter table public.departments enable row level security;
@@ -101,46 +103,59 @@ alter table public.column_mapping_templates enable row level security;
 alter table public.payroll_records enable row level security;
 alter table public.import_logs enable row level security;
 
+-- ฟังก์ชันช่วยตรวจสิทธิ์ (security definer เพื่อเลี่ยง RLS recursion เวลาใช้เป็นเงื่อนไขบนตาราง profiles เอง)
+create or replace function public.is_active_user()
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select coalesce((select active from public.profiles where id = auth.uid()), false);
+$$;
+
+create or replace function public.is_admin_user()
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select coalesce((select role = 'admin' and active from public.profiles where id = auth.uid()), false);
+$$;
+
+-- ผู้ใช้ดู/แก้ไขโปรไฟล์ตัวเองได้เสมอ (แม้บัญชีจะถูกปิดใช้งาน จะได้รู้ตัวว่าถูกปิด)
 create policy "profiles_self_select" on public.profiles for select using (auth.uid() = id);
 create policy "profiles_self_update" on public.profiles for update using (auth.uid() = id);
+-- admin ดู/แก้ไขโปรไฟล์ผู้ใช้ทุกคนได้ (หน้าจัดการผู้ใช้งาน: เปลี่ยน role, ปิด/เปิดบัญชี)
+create policy "profiles_admin_read" on public.profiles for select using (public.is_admin_user());
+create policy "profiles_admin_update" on public.profiles for update using (public.is_admin_user()) with check (public.is_admin_user());
 
-create policy "departments_read" on public.departments for select using (auth.role() = 'authenticated');
-create policy "departments_write" on public.departments for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "departments_read" on public.departments for select using (public.is_active_user());
+create policy "departments_write" on public.departments for all using (public.is_active_user()) with check (public.is_active_user());
 
-create policy "employees_read" on public.employees for select using (auth.role() = 'authenticated');
-create policy "employees_write" on public.employees for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "employees_read" on public.employees for select using (public.is_active_user());
+create policy "employees_write" on public.employees for all using (public.is_active_user()) with check (public.is_active_user());
 
-create policy "periods_read" on public.payroll_periods for select using (auth.role() = 'authenticated');
-create policy "periods_insert" on public.payroll_periods for insert with check (auth.role() = 'authenticated');
-create policy "periods_update" on public.payroll_periods for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "periods_read" on public.payroll_periods for select using (public.is_active_user());
+create policy "periods_insert" on public.payroll_periods for insert with check (public.is_active_user());
+create policy "periods_update" on public.payroll_periods for update using (public.is_active_user()) with check (public.is_active_user());
 -- ลบงวดเงินเดือนได้เฉพาะผู้ดูแลระบบ (admin) เท่านั้น เพราะจะพ่วงลบข้อมูลเงินเดือนทั้งงวด
-create policy "periods_delete_admin" on public.payroll_periods for delete using (
-  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
-);
+create policy "periods_delete_admin" on public.payroll_periods for delete using (public.is_admin_user());
 
-create policy "mapping_read" on public.column_mapping_templates for select using (auth.role() = 'authenticated');
-create policy "mapping_write" on public.column_mapping_templates for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "mapping_read" on public.column_mapping_templates for select using (public.is_active_user());
+create policy "mapping_write" on public.column_mapping_templates for all using (public.is_active_user()) with check (public.is_active_user());
 
-create policy "records_read" on public.payroll_records for select using (auth.role() = 'authenticated');
-create policy "records_insert" on public.payroll_records for insert with check (auth.role() = 'authenticated');
-create policy "records_update" on public.payroll_records for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "records_read" on public.payroll_records for select using (public.is_active_user());
+create policy "records_insert" on public.payroll_records for insert with check (public.is_active_user());
+create policy "records_update" on public.payroll_records for update using (public.is_active_user()) with check (public.is_active_user());
 -- ลบข้อมูลเงินเดือนได้เฉพาะ admin เท่านั้น (ใช้ตอนลบรายการนำเข้าที่ผิดจากหน้าประวัติการนำเข้า)
-create policy "records_delete_admin" on public.payroll_records for delete using (
-  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
-);
+create policy "records_delete_admin" on public.payroll_records for delete using (public.is_admin_user());
 
-create policy "logs_read" on public.import_logs for select using (auth.role() = 'authenticated');
-create policy "logs_write" on public.import_logs for insert with check (auth.role() = 'authenticated');
-create policy "logs_delete_admin" on public.import_logs for delete using (
-  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
-);
+create policy "logs_read" on public.import_logs for select using (public.is_active_user());
+create policy "logs_write" on public.import_logs for insert with check (public.is_active_user());
+create policy "logs_delete_admin" on public.import_logs for delete using (public.is_admin_user());
 
--- เมื่อมีผู้ใช้สมัคร/ถูกสร้างใน auth.users ให้สร้างแถว profile อัตโนมัติ
+-- เมื่อมีผู้ใช้สมัคร/ถูกสร้างใน auth.users ให้สร้างแถว profile อัตโนมัติ (พร้อม email สำหรับหน้าจัดการผู้ใช้งาน)
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, full_name, role)
-  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', new.email), 'staff');
+  insert into public.profiles (id, full_name, role, email)
+  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', new.email), 'staff', new.email);
   return new;
 end;
 $$ language plpgsql security definer set search_path = public;
@@ -183,12 +198,8 @@ insert into public.org_settings (id) values (1) on conflict (id) do nothing;
 
 alter table public.org_settings enable row level security;
 
-create policy "org_settings_read" on public.org_settings for select using (auth.role() = 'authenticated');
-create policy "org_settings_update_admin" on public.org_settings for update using (
-  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
-) with check (
-  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
-);
+create policy "org_settings_read" on public.org_settings for select using (public.is_active_user());
+create policy "org_settings_update_admin" on public.org_settings for update using (public.is_admin_user()) with check (public.is_admin_user());
 
 -- ที่เก็บโลโก้หน่วยงาน (public bucket: อ่านได้โดยไม่ต้องล็อกอิน, เขียนได้เฉพาะ admin)
 insert into storage.buckets (id, name, public)
@@ -198,15 +209,15 @@ on conflict (id) do nothing;
 create policy "org_assets_public_read" on storage.objects for select using (bucket_id = 'org-assets');
 
 create policy "org_assets_admin_insert" on storage.objects for insert with check (
-  bucket_id = 'org-assets' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  bucket_id = 'org-assets' and public.is_admin_user()
 );
 
 create policy "org_assets_admin_update" on storage.objects for update using (
-  bucket_id = 'org-assets' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  bucket_id = 'org-assets' and public.is_admin_user()
 );
 
 create policy "org_assets_admin_delete" on storage.objects for delete using (
-  bucket_id = 'org-assets' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  bucket_id = 'org-assets' and public.is_admin_user()
 );
 
 -- ============================================================
@@ -236,9 +247,7 @@ create index if not exists idx_manual_slips_issue_date on public.manual_slips(is
 
 alter table public.manual_slips enable row level security;
 
-create policy "manual_slips_read" on public.manual_slips for select using (auth.role() = 'authenticated');
-create policy "manual_slips_insert" on public.manual_slips for insert with check (auth.role() = 'authenticated');
-create policy "manual_slips_update" on public.manual_slips for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "manual_slips_delete_admin" on public.manual_slips for delete using (
-  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
-);
+create policy "manual_slips_read" on public.manual_slips for select using (public.is_active_user());
+create policy "manual_slips_insert" on public.manual_slips for insert with check (public.is_active_user());
+create policy "manual_slips_update" on public.manual_slips for update using (public.is_active_user()) with check (public.is_active_user());
+create policy "manual_slips_delete_admin" on public.manual_slips for delete using (public.is_admin_user());

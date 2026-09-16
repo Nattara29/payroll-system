@@ -14,6 +14,7 @@ const MENU = [
   { id: "manualslip", label: "สลิปเงินเดือน (Manual)" },
   { id: "history", label: "ประวัติการนำเข้า" },
   { id: "settings", label: "ตั้งค่า" },
+  { id: "users", label: "จัดการผู้ใช้งาน", adminOnly: true },
 ];
 
 const UI = {
@@ -36,6 +37,7 @@ const UI = {
     if (id === "employees") Employees.search();
     if (id === "history") History.load();
     if (id === "settings") Settings.load();
+    if (id === "users") Users.load();
     if (id === "slip") Slip.render();
     if (id === "manualslip") ManualSlip.render();
     if (id === "import") ImportWizard.render();
@@ -47,10 +49,11 @@ const UI = {
     setTimeout(() => (t.className = "toast"), 3200);
   },
   renderMenu() {
+    const isAdmin = AppState.profile && AppState.profile.role === "admin";
     const el = document.getElementById("menuList");
-    el.innerHTML = MENU.map(
-      (m) => `<div class="menu-item" data-id="${m.id}" onclick="UI.showView('${m.id}')"><span class="menu-label">${m.label}</span></div>`
-    ).join("");
+    el.innerHTML = MENU.filter((m) => !m.adminOnly || isAdmin)
+      .map((m) => `<div class="menu-item" data-id="${m.id}" onclick="UI.showView('${m.id}')"><span class="menu-label">${m.label}</span></div>`)
+      .join("");
   },
 };
 
@@ -292,8 +295,17 @@ async function boot() {
     return;
   }
   AppState.user = session.user;
-  const { data: profile } = await sb.from("profiles").select("full_name,role").eq("id", session.user.id).single();
+  const { data: profile } = await sb.from("profiles").select("full_name,role,active").eq("id", session.user.id).single();
   AppState.profile = profile;
+
+  if (profile && !profile.active) {
+    await sb.auth.signOut();
+    document.getElementById("authScreen").style.display = "flex";
+    document.getElementById("app").style.display = "none";
+    Auth.showError("บัญชีนี้ถูกปิดใช้งานแล้ว กรุณาติดต่อผู้ดูแลระบบ");
+    return;
+  }
+
   document.getElementById("whoAmI").textContent = profile ? `${profile.full_name} (${profile.role === "admin" ? "ผู้ดูแลระบบ" : "เจ้าหน้าที่"})` : session.user.email;
 
   document.getElementById("authScreen").style.display = "none";
