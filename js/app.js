@@ -12,6 +12,7 @@ const MENU = [
   { id: "employees", label: "บุคลากร" },
   { id: "slip", label: "สลิปเงินเดือน" },
   { id: "history", label: "ประวัติการนำเข้า" },
+  { id: "settings", label: "ตั้งค่า" },
 ];
 
 const UI = {
@@ -33,6 +34,7 @@ const UI = {
     if (id === "dashboard") Dashboard.load();
     if (id === "employees") Employees.search();
     if (id === "history") History.load();
+    if (id === "settings") Settings.load();
     if (id === "import") ImportWizard.render();
   },
   toast(msg, isError) {
@@ -280,6 +282,8 @@ async function boot() {
   document.getElementById("app").style.display = "flex";
   UI.renderMenu();
   await loadDepartments();
+  const { data: orgSettings } = await sb.from("org_settings").select("*").eq("id", 1).single();
+  applyOrgBranding(orgSettings);
   UI.showView("dashboard");
 }
 

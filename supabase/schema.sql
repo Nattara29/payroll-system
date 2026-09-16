@@ -150,3 +150,50 @@ insert into public.departments (name) values
   ('งานบริหารทั่วไปเกี่ยวกับเคหะและชุมชน'),
   ('งานบริหารทั่วไปเกี่ยวกับสร้างความเข้มแข็งชุมชน')
 on conflict (name) do nothing;
+
+-- ============================================================
+-- ข้อมูลตั้งค่าหน่วยงาน (singleton row) + ที่เก็บโลโก้
+-- ============================================================
+create table if not exists public.org_settings (
+  id int primary key default 1 check (id = 1),
+  org_name text not null default 'เทศบาลเมืองศรีสัชนาลัย',
+  org_name_short text default 'ทม.',
+  address text,
+  phone text,
+  email text,
+  director_name text,
+  director_title text,
+  logo_url text,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.profiles(id)
+);
+
+insert into public.org_settings (id) values (1) on conflict (id) do nothing;
+
+alter table public.org_settings enable row level security;
+
+create policy "org_settings_read" on public.org_settings for select using (auth.role() = 'authenticated');
+create policy "org_settings_update_admin" on public.org_settings for update using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+) with check (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
+
+-- ที่เก็บโลโก้หน่วยงาน (public bucket: อ่านได้โดยไม่ต้องล็อกอิน, เขียนได้เฉพาะ admin)
+insert into storage.buckets (id, name, public)
+values ('org-assets', 'org-assets', true)
+on conflict (id) do nothing;
+
+create policy "org_assets_public_read" on storage.objects for select using (bucket_id = 'org-assets');
+
+create policy "org_assets_admin_insert" on storage.objects for insert with check (
+  bucket_id = 'org-assets' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
+
+create policy "org_assets_admin_update" on storage.objects for update using (
+  bucket_id = 'org-assets' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
+
+create policy "org_assets_admin_delete" on storage.objects for delete using (
+  bucket_id = 'org-assets' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
