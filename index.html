@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ระบบเงินเดือน เทศบาลเมืองศรีสัชนาลัย</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="vendor/html2pdf.bundle.min.js"></script>
+<script src="vendor/sweetalert2.all.min.js"></script>
+<link href="css/style.css" rel="stylesheet"/>
+</head>
+<body>
+
+<!-- ============ หน้าล็อกอิน ============ -->
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-seal">ทม.</div>
+    <h1 class="auth-title">ระบบเงินเดือนเทศบาล</h1>
+    <p class="auth-sub">เทศบาลเมืองศรีสัชนาลัย</p>
+    <div class="auth-error" id="authError"></div>
+
+    <div id="authFormFields">
+      <div class="field"><label>อีเมล</label><input id="loginEmail" type="email" placeholder="name@example.com"/></div>
+      <div class="field"><label>รหัสผ่าน</label><input id="loginPassword" type="password" placeholder="••••••••"/></div>
+      <p class="helptext" id="authSignupNotice" style="display:none;margin:-6px 0 14px 0;">📧 หลังกด "สมัครใช้งาน" ระบบจะส่งอีเมลยืนยันไปที่อีเมลที่กรอกไว้ กรุณาเปิดอีเมลและกดลิงก์ยืนยันก่อน จากนั้นรอผู้ดูแลระบบเปิดใช้งานบัญชีให้ ถึงจะเข้าสู่ระบบได้</p>
+      <button class="btn btn-primary" id="authSubmitBtn" style="width:100%;justify-content:center;" onclick="Auth.login()">เข้าสู่ระบบ</button>
+      <p class="helptext" style="text-align:center;margin-top:14px;">ยังไม่มีบัญชี? <a href="#" onclick="Auth.toggleSignup(event)" id="toggleSignupLink">สมัครใช้งาน</a></p>
+    </div>
+
+    <div id="authSignupSuccess" style="display:none;text-align:center;">
+      <div style="font-size:40px;">📧</div>
+      <h3 style="font-family:'Kanit';margin:10px 0 6px 0;">สมัครสมาชิกสำเร็จ!</h3>
+      <p class="helptext" style="margin-bottom:4px;">เราได้ส่งอีเมลยืนยันไปที่</p>
+      <p style="font-weight:600;margin:0 0 14px 0;" id="authSignupEmail"></p>
+      <p class="helptext">กรุณาเปิดอีเมล (ถ้าไม่เจอในกล่องจดหมาย ลองดูที่ถังขยะ/สแปม) แล้วกดลิงก์ยืนยันในอีเมล จากนั้นรอผู้ดูแลระบบเปิดใช้งานบัญชีให้ก่อน จึงจะเข้าสู่ระบบที่หน้านี้ได้</p>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:16px;" onclick="Auth.backToLoginAfterSignup()">ไปหน้าเข้าสู่ระบบ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ แอปหลัก ============ -->
+<div id="app" style="display:none;">
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-seal" id="brandSeal">ทม.</div>
+      <div class="brand-text">
+        <div class="t1">ระบบเงินเดือน<br/><span id="brandOrgName">เทศบาลเมืองศรีสัชนาลัย</span></div>
+        <div class="t2">Payroll &amp; Slip System</div>
+      </div>
+      <button aria-label="ปิดเมนู" class="sidebar-close" onclick="UI.closeSidebar()">✕</button>
+    </div>
+    <nav class="menu" id="menuList"></nav>
+    <div class="sidebar-foot" id="whoAmI">—</div>
+  </aside>
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="UI.closeSidebar()"></div>
+
+  <div id="main">
+    <div id="topbar">
+      <div class="topbar-left">
+        <button aria-label="เปิดเมนู" id="hamburgerBtn" onclick="UI.toggleSidebar()">
+          <svg fill="none" height="20" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <div style="min-width:0;">
+          <div class="crumb-eyebrow">ระบบงานบุคคล / การเงิน</div>
+          <div class="page-title" id="pageTitle">แดชบอร์ด</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="org-pill" id="orgPill">เทศบาลเมืองศรีสัชนาลัย</span>
+        <button class="btn btn-ghost btn-sm" onclick="Auth.logout()">ออกจากระบบ</button>
+      </div>
+    </div>
+    <div id="content">
+
+      <!-- แดชบอร์ด -->
+      <div class="view active" id="view-dashboard">
+        <div class="dash-greeting" id="dashGreeting"></div>
+        <div class="grid grid-4" id="dashStats" style="margin-bottom:20px;"></div>
+        <div class="grid grid-2" style="margin-bottom:20px;align-items:start;">
+          <div class="card">
+            <h3 class="section-title">ยอดจ่ายสุทธิแยกตามกอง/สำนัก</h3>
+            <p class="section-sub" id="dashDeptChartSub">งวดล่าสุด</p>
+            <div id="dashDeptChart"></div>
+          </div>
+          <div class="card">
+            <h3 class="section-title">บุคลากรแยกตามประเภท</h3>
+            <p class="section-sub">เฉพาะที่ยังปฏิบัติงาน</p>
+            <div id="dashTypeChart"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="section-title">งวดเงินเดือนล่าสุด</h3>
+          <p class="section-sub">รายการงวดที่นำเข้าระบบแล้ว</p>
+          <div class="table-scroll"><table id="dashPeriodsTable"><thead><tr><th>งวด</th><th>สถานะ</th><th>จำนวนคน</th><th>ยอดจ่ายสุทธิรวม</th><th>นำเข้าเมื่อ</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- นำเข้าข้อมูลเงินเดือน -->
+      <div class="view" id="view-import">
+        <div class="wizard-steps" id="wizardSteps"></div>
+        <div class="card" id="wizardBody"></div>
+      </div>
+
+      <!-- บุคลากร -->
+      <div class="view" id="view-employees">
+        <div class="card">
+          <h3 class="section-title">ค้นหาพนักงาน</h3>
+          <div class="field"><input id="empSearch" placeholder="พิมพ์ชื่อ-สกุล..." oninput="Employees.search()"/></div>
+          <div class="table-scroll"><table id="empTable"><thead><tr><th>ชื่อ-สกุล</th><th>ประเภท</th><th>กอง/สำนัก</th><th>สถานะ</th><th></th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- ประวัติการนำเข้า -->
+      <div class="view" id="view-history">
+        <div class="card">
+          <h3 class="section-title">ประวัติการนำเข้าไฟล์ Excel</h3>
+          <div class="table-scroll"><table id="historyTable"><thead><tr><th>วันที่นำเข้า</th><th>ไฟล์</th><th>งวด</th><th>จำนวนแถว</th><th>ข้อผิดพลาด</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- สลิปเงินเดือน -->
+      <div class="view" id="view-slip">
+        <div class="card no-print" style="margin-bottom:16px;" id="slipSearchCard">
+          <h3 class="section-title">ค้นหาสลิปเงินเดือน</h3>
+          <p class="section-sub">เลือกงวดเงินเดือน แล้วค้นหาพนักงานที่ต้องการออกสลิป — ติ๊กเลือกได้หลายคนเพื่อพิมพ์/ดาวน์โหลดพร้อมกัน</p>
+          <div class="grid grid-3" style="margin-bottom:6px;">
+            <div class="field"><label>งวดเงินเดือน</label><select id="slipPeriod" onchange="Slip.onPeriodChange()"><option value="">-- เลือกงวด --</option></select></div>
+            <div class="field"><label>กอง/สำนัก</label><select id="slipDept" onchange="Slip.search()"><option value="">ทั้งหมด</option></select></div>
+            <div class="field"><label>ค้นหาชื่อ-สกุล</label><input id="slipSearch" placeholder="พิมพ์ชื่อ..." oninput="Slip.search()"/></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+            <span class="helptext" id="slipSelectedCount" style="margin:0;">ยังไม่ได้เลือก</span>
+            <button class="btn btn-primary btn-sm" disabled id="slipBulkPrintBtn" onclick="Slip.viewSelected()">ดูตัวอย่าง/พิมพ์-ดาวน์โหลดที่เลือก</button>
+          </div>
+          <div class="table-scroll"><table id="slipResultsTable"><thead><tr><th style="width:36px;"><input id="slipSelectAll" onchange="Slip.toggleSelectAll(this.checked)" type="checkbox"/></th><th>ชื่อ-สกุล</th><th>ประเภท</th><th>กอง/สำนัก</th><th>รับสุทธิ</th><th></th></tr></thead><tbody><tr><td colspan="6" style="text-align:center;color:var(--text-soft);">เลือกงวดเงินเดือนเพื่อเริ่มค้นหา</td></tr></tbody></table></div>
+        </div>
+
+        <div id="slipViewWrap" style="display:none;">
+          <div class="card no-print" style="margin-bottom:16px;display:flex;gap:10px;justify-content:space-between;align-items:center;">
+            <button class="btn btn-ghost" onclick="Slip.backToSearch()">← กลับไปค้นหา</button>
+            <div style="display:flex;gap:10px;">
+              <button class="btn btn-ghost" onclick="Slip.print()">🖨️ พิมพ์</button>
+              <button class="btn btn-gold" id="slipPdfBtn" onclick="Slip.downloadPdf()">⬇ ดาวน์โหลด PDF</button>
+            </div>
+          </div>
+          <div id="slipPage"></div>
+        </div>
+      </div>
+
+      <!-- สลิปเงินเดือน (Manual) -->
+      <div class="view" id="view-manualslip">
+        <div class="card no-print" style="margin-bottom:16px;" id="manualSlipListCard">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div>
+              <h3 class="section-title">สลิปเงินเดือน (Manual)</h3>
+              <p class="section-sub">จัดทำสลิปเองสำหรับกรณีจ่ายเพิ่มเติม/ตกเบิก — แยกอิสระจากข้อมูลที่นำเข้าจาก Excel</p>
+            </div>
+            <button class="btn btn-primary" onclick="ManualSlip.newForm()">+ สร้างสลิปใหม่</button>
+          </div>
+          <div class="field" style="margin-top:10px;"><input id="manualSlipSearch" placeholder="ค้นหาชื่อ-สกุล..." oninput="ManualSlip.loadList()"/></div>
+          <div class="table-scroll"><table id="manualSlipTable"><thead><tr><th>วันที่ออกสลิป</th><th>ชื่อ-สกุล</th><th>หัวข้อ</th><th>รับสุทธิ</th><th></th></tr></thead><tbody></tbody></table></div>
+        </div>
+
+        <div class="card no-print" style="margin-bottom:16px;display:none;" id="manualSlipFormCard">
+          <h3 class="section-title">สร้างสลิปเงินเดือน (Manual)</h3>
+          <div class="grid grid-3">
+            <div class="field">
+              <label>ชื่อ-สกุลผู้รับเงิน *</label>
+              <input id="mfName" list="manualEmpDatalist" placeholder="พิมพ์หรือเลือกจากรายชื่อ" onchange="ManualSlip.onNameChange()"/>
+              <datalist id="manualEmpDatalist"></datalist>
+            </div>
+            <div class="field"><label>ประเภท</label><input id="mfType" placeholder="เช่น ข้าราชการส่วนท้องถิ่น"/></div>
+            <div class="field"><label>กอง/สำนัก</label><input id="mfDept" placeholder="เช่น งานบริหารงานคลัง"/></div>
+          </div>
+          <div class="grid grid-2" style="gap:14px;">
+            <div class="field"><label>หัวข้อ/เหตุผล *</label><input id="mfTitle" placeholder="เช่น เงินตกเบิกค่าตอบแทนพิเศษ เดือนสิงหาคม 2569"/></div>
+            <div class="field"><label>วันที่ออกสลิป</label><input id="mfDate" type="date"/></div>
+          </div>
+
+          <div class="grid grid-2" style="gap:20px;margin-top:8px;">
+            <div>
+              <label>รายการรับ</label>
+              <div id="mfIncomeRows"></div>
+              <button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="ManualSlip.addRow('income')">+ เพิ่มรายการรับ</button>
+            </div>
+            <div>
+              <label>รายการหัก</label>
+              <div id="mfDeductionRows"></div>
+              <button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="ManualSlip.addRow('deduction')">+ เพิ่มรายการหัก</button>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:14px;"><label>หมายเหตุ (ไม่บังคับ)</label><textarea id="mfNote" rows="2"></textarea></div>
+
+          <div class="slip-net" style="margin-top:14px;max-width:360px;">
+            <div class="lbl">เงินรับสุทธิ (โดยประมาณ)</div>
+            <div class="amt" id="mfNetPreview">0.00 บาท</div>
+          </div>
+
+          <div class="modal-foot" style="padding:16px 0 0 0;border:none;">
+            <button class="btn btn-ghost" onclick="ManualSlip.cancelForm()">ยกเลิก</button>
+            <button class="btn btn-primary" id="mfSaveBtn" onclick="ManualSlip.save()">บันทึกและดูสลิป</button>
+          </div>
+        </div>
+
+        <div id="manualSlipViewWrap" style="display:none;">
+          <div class="card no-print" style="margin-bottom:16px;display:flex;gap:10px;justify-content:space-between;align-items:center;">
+            <button class="btn btn-ghost" onclick="ManualSlip.backToList()">← กลับไปรายการ</button>
+            <div style="display:flex;gap:10px;">
+              <button class="btn btn-ghost" onclick="Slip.print()">🖨️ พิมพ์</button>
+              <button class="btn btn-gold" id="manualSlipPdfBtn" onclick="ManualSlip.downloadPdf()">⬇ ดาวน์โหลด PDF</button>
+            </div>
+          </div>
+          <div id="manualSlipPage"></div>
+        </div>
+      </div>
+
+      <!-- ตั้งค่า -->
+      <div class="view" id="view-settings">
+        <div class="grid grid-2" style="align-items:start;">
+          <div class="card">
+            <h3 class="section-title">ข้อมูลหน่วยงาน</h3>
+            <p class="section-sub" id="settingsReadonlyNote" style="display:none;">คุณดูข้อมูลนี้ได้อย่างเดียว การแก้ไขทำได้เฉพาะผู้ดูแลระบบ</p>
+            <div class="field"><label>ชื่อหน่วยงานเต็ม</label><input id="setOrgName" placeholder="เช่น เทศบาลเมืองศรีสัชนาลัย"/></div>
+            <div class="field"><label>ชื่อย่อ (แสดงในตราสัญลักษณ์)</label><input id="setOrgShort" maxlength="4" placeholder="เช่น ทม."/></div>
+            <div class="field"><label>ที่อยู่</label><textarea id="setAddress" rows="2" placeholder="ที่อยู่หน่วยงาน"></textarea></div>
+            <div class="grid grid-2" style="gap:14px;">
+              <div class="field"><label>โทรศัพท์</label><input id="setPhone" placeholder="0-xxxx-xxxx"/></div>
+              <div class="field"><label>อีเมล</label><input id="setEmail" type="email" placeholder="office@example.go.th"/></div>
+            </div>
+            <div class="grid grid-2" style="gap:14px;">
+              <div class="field"><label>ชื่อผู้บริหาร</label><input id="setDirectorName" placeholder="เช่น นายกเทศมนตรี..."/></div>
+              <div class="field"><label>ตำแหน่งผู้บริหาร</label><input id="setDirectorTitle" placeholder="เช่น นายกเทศมนตรีเมืองศรีสัชนาลัย"/></div>
+            </div>
+            <button class="btn btn-primary" id="setSaveBtn" onclick="Settings.save()">บันทึกข้อมูลหน่วยงาน</button>
+          </div>
+
+          <div class="card">
+            <h3 class="section-title">โลโก้หน่วยงาน</h3>
+            <p class="section-sub">ใช้แสดงในเมนูด้านซ้าย รองรับไฟล์ PNG/JPG ขนาดไม่เกิน 2 MB</p>
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
+              <div id="logoPreview" style="width:72px;height:72px;border-radius:50%;background:var(--bg);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;"></div>
+              <div id="logoStatus" class="helptext" style="margin:0;">ยังไม่มีโลโก้</div>
+            </div>
+            <div class="field" id="logoUploadField"><label>อัปโหลดโลโก้ใหม่</label><input id="setLogoFile" type="file" accept="image/png,image/jpeg"/></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- โปรไฟล์ของฉัน -->
+      <div class="view" id="view-profile">
+        <div class="grid grid-2" style="align-items:start;">
+          <div class="card">
+            <h3 class="section-title">ข้อมูลส่วนตัว</h3>
+            <p class="section-sub">แก้ไขชื่อ-สกุลที่แสดงในระบบ</p>
+            <div class="field"><label>ชื่อ-สกุล</label><input id="profFullName" placeholder="ชื่อ-สกุล"/></div>
+            <div class="field"><label>อีเมล</label><input disabled id="profEmail"/></div>
+            <div class="field"><label>บทบาท</label><input disabled id="profRole"/></div>
+            <button class="btn btn-primary" id="profSaveBtn" onclick="Profile.saveName()">บันทึกข้อมูลส่วนตัว</button>
+          </div>
+
+          <div class="card">
+            <h3 class="section-title">เปลี่ยนรหัสผ่าน</h3>
+            <p class="section-sub">ตั้งรหัสผ่านใหม่สำหรับเข้าสู่ระบบครั้งถัดไป</p>
+            <div class="field"><label>รหัสผ่านใหม่</label><input id="profNewPassword" placeholder="อย่างน้อย 6 ตัวอักษร" type="password"/></div>
+            <div class="field"><label>ยืนยันรหัสผ่านใหม่</label><input id="profConfirmPassword" placeholder="พิมพ์ซ้ำอีกครั้ง" type="password"/></div>
+            <button class="btn btn-primary" id="profPasswordBtn" onclick="Profile.changePassword()">เปลี่ยนรหัสผ่าน</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- จัดการผู้ใช้งาน -->
+      <div class="view" id="view-users">
+        <div class="card">
+          <h3 class="section-title">จัดการผู้ใช้งาน</h3>
+          <p class="section-sub">กำหนดบัญชีผู้ใช้และบทบาทการเข้าถึงระบบ — ผู้ใช้ใหม่สมัครบัญชีเองที่หน้าล็อกอินก่อน แล้วแอดมินมากำหนดสิทธิ์ที่นี่</p>
+          <div class="table-scroll">
+            <table id="usersTable">
+              <thead><tr><th>ชื่อ-สกุล</th><th>อีเมล</th><th>บทบาท</th><th>สถานะ</th><th>สมัครเมื่อ</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="js/supabaseClient.js"></script>
+<script src="js/xlsx-parser.js"></script>
+<script src="js/app.js"></script>
+<script src="js/import.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/users.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/slip.js"></script>
+<script src="js/manualslip.js"></script>
+</body>
+</html>
