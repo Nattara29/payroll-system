@@ -125,13 +125,17 @@
       <div class="view" id="view-slip">
         <div class="card no-print" style="margin-bottom:16px;" id="slipSearchCard">
           <h3 class="section-title">ค้นหาสลิปเงินเดือน</h3>
-          <p class="section-sub">เลือกงวดเงินเดือน แล้วค้นหาพนักงานที่ต้องการออกสลิป</p>
+          <p class="section-sub">เลือกงวดเงินเดือน แล้วค้นหาพนักงานที่ต้องการออกสลิป — ติ๊กเลือกได้หลายคนเพื่อพิมพ์/ดาวน์โหลดพร้อมกัน</p>
           <div class="grid grid-3" style="margin-bottom:6px;">
             <div class="field"><label>งวดเงินเดือน</label><select id="slipPeriod" onchange="Slip.onPeriodChange()"><option value="">-- เลือกงวด --</option></select></div>
             <div class="field"><label>กอง/สำนัก</label><select id="slipDept" onchange="Slip.search()"><option value="">ทั้งหมด</option></select></div>
             <div class="field"><label>ค้นหาชื่อ-สกุล</label><input id="slipSearch" placeholder="พิมพ์ชื่อ..." oninput="Slip.search()"/></div>
           </div>
-          <div class="table-scroll"><table id="slipResultsTable"><thead><tr><th>ชื่อ-สกุล</th><th>ประเภท</th><th>กอง/สำนัก</th><th>รับสุทธิ</th><th></th></tr></thead><tbody><tr><td colspan="5" style="text-align:center;color:var(--text-soft);">เลือกงวดเงินเดือนเพื่อเริ่มค้นหา</td></tr></tbody></table></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+            <span class="helptext" id="slipSelectedCount" style="margin:0;">ยังไม่ได้เลือก</span>
+            <button class="btn btn-primary btn-sm" disabled id="slipBulkPrintBtn" onclick="Slip.viewSelected()">ดูตัวอย่าง/พิมพ์-ดาวน์โหลดที่เลือก</button>
+          </div>
+          <div class="table-scroll"><table id="slipResultsTable"><thead><tr><th style="width:36px;"><input id="slipSelectAll" onchange="Slip.toggleSelectAll(this.checked)" type="checkbox"/></th><th>ชื่อ-สกุล</th><th>ประเภท</th><th>กอง/สำนัก</th><th>รับสุทธิ</th><th></th></tr></thead><tbody><tr><td colspan="6" style="text-align:center;color:var(--text-soft);">เลือกงวดเงินเดือนเพื่อเริ่มค้นหา</td></tr></tbody></table></div>
         </div>
 
         <div id="slipViewWrap" style="display:none;">

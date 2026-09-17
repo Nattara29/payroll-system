@@ -197,6 +197,11 @@ tr:hover td{background:#f7faf8;}
 .slip-net .amt{font-family:'Kanit';font-size:21px;font-weight:700;}
 .slip-genat{margin-top:18px;font-size:10.5px;color:var(--text-soft);text-align:right;}
 
+/* พรีวิวสลิปหลายใบบนหน้าจอ: เว้นระยะห่างระหว่างใบให้เห็นชัดว่าเป็นคนละหน้า (ตอนพิมพ์จริงไม่ใช้ระยะนี้) */
+@media screen{
+  .slip-page + .slip-page{margin-top:24px;}
+}
+
 @media print{
   #sidebar,#topbar,.no-print{display:none !important;}
   .swal2-container{display:none !important;}
@@ -206,7 +211,9 @@ tr:hover td{background:#f7faf8;}
   #content{padding:0 !important;}
   body{background:#fff;}
   /* เผื่อระยะเล็กน้อยจากความสูงเต็ม 297mm กันเบราว์เซอร์ปัดเศษพิกเซลจนดันเนื้อหาล้นไปหน้า 2 ที่ว่างเปล่า */
-  .slip-page{box-shadow:none;border:none;margin:0;height:293mm;}
+  /* ถ้ามีหลายใบ (พิมพ์หลายคนพร้อมกัน) ให้แต่ละใบขึ้นหน้ากระดาษใหม่เสมอ ใบสุดท้ายไม่ต้องขึ้นหน้าเปล่าต่อท้าย */
+  .slip-page{box-shadow:none;border:none;margin:0;height:293mm;page-break-after:always;}
+  .slip-page:last-child{page-break-after:auto;}
   @page{size:A4;margin:0;}
 }
 
