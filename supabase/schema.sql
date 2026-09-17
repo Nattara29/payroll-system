@@ -39,7 +39,7 @@ create table if not exists public.payroll_periods (
   month int not null check (month between 1 and 12),
   status text not null default 'draft' check (status in ('draft','confirmed')),
   source_filename text,
-  imported_by uuid references public.profiles(id),
+  imported_by uuid references public.profiles(id) on delete set null,
   imported_at timestamptz,
   created_at timestamptz not null default now(),
   unique (year, month)
@@ -50,7 +50,7 @@ create table if not exists public.column_mapping_templates (
   id bigint generated always as identity primary key,
   name text not null,
   mapping jsonb not null,
-  created_by uuid references public.profiles(id),
+  created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
@@ -78,7 +78,7 @@ create table if not exists public.import_logs (
   error_count int not null default 0,
   status text not null default 'success' check (status in ('success','partial','failed')),
   detail jsonb,
-  created_by uuid references public.profiles(id),
+  created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
@@ -125,6 +125,8 @@ create policy "profiles_self_update" on public.profiles for update using (auth.u
 -- admin ดู/แก้ไขโปรไฟล์ผู้ใช้ทุกคนได้ (หน้าจัดการผู้ใช้งาน: เปลี่ยน role, ปิด/เปิดบัญชี)
 create policy "profiles_admin_read" on public.profiles for select using (public.is_admin_user());
 create policy "profiles_admin_update" on public.profiles for update using (public.is_admin_user()) with check (public.is_admin_user());
+-- ลบบัญชีผู้ใช้ได้เฉพาะ admin เท่านั้น (กรณีบุคคลนั้นไม่ได้ทำงานที่นี่แล้ว) และลบบัญชีตัวเองไม่ได้
+create policy "profiles_admin_delete" on public.profiles for delete using (public.is_admin_user() and auth.uid() <> id);
 
 -- นำเข้าข้อมูลเงินเดือน (departments/employees/periods/mapping/records/logs) แก้ไขได้เฉพาะ admin เท่านั้น
 -- staff อ่านได้อย่างเดียว (เมนูนำเข้าถูกซ่อนจาก staff ที่ฝั่งหน้าเว็บด้วย)
@@ -217,7 +219,7 @@ create table if not exists public.org_settings (
   director_title text,
   logo_url text,
   updated_at timestamptz not null default now(),
-  updated_by uuid references public.profiles(id)
+  updated_by uuid references public.profiles(id) on delete set null
 );
 
 insert into public.org_settings (id) values (1) on conflict (id) do nothing;
@@ -264,7 +266,7 @@ create table if not exists public.manual_slips (
   total_deduction numeric(12,2) not null default 0,
   net_pay numeric(12,2) not null default 0,
   note text,
-  created_by uuid references public.profiles(id),
+  created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now()
 );
 

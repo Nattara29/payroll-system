@@ -448,11 +448,12 @@ async function boot() {
   const { data: profile } = await sb.from("profiles").select("full_name,role,active").eq("id", session.user.id).single();
   AppState.profile = profile;
 
-  if (profile && !profile.active) {
+  // ไม่พบโปรไฟล์เลย (แอดมินลบบัญชีนี้ทิ้งไปแล้ว เช่น กรณีคนนี้ไม่ได้ทำงานที่นี่แล้ว) หรือบัญชีถูกปิดใช้งาน
+  if (!profile || !profile.active) {
     await sb.auth.signOut();
     document.getElementById("authScreen").style.display = "flex";
     document.getElementById("app").style.display = "none";
-    Auth.showError("บัญชีนี้ถูกปิดใช้งานแล้ว กรุณาติดต่อผู้ดูแลระบบ");
+    Auth.showError(profile ? "บัญชีนี้ถูกปิดใช้งานแล้ว กรุณาติดต่อผู้ดูแลระบบ" : "ไม่พบบัญชีผู้ใช้นี้ในระบบแล้ว กรุณาติดต่อผู้ดูแลระบบ");
     return;
   }
 

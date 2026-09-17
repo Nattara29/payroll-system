@@ -26,16 +26,19 @@ const Users = {
           <option value="admin" ${u.role === "admin" ? "selected" : ""}>ผู้ดูแลระบบ (admin)</option>
         </select>`;
         const statusBadge = `<span class="badge ${u.active ? "badge-green" : "badge-red"}">${u.active ? "เปิดใช้งาน" : "ปิดใช้งาน"}</span>`;
-        const toggleBtn = isSelf
+        const actions = isSelf
           ? '<span class="helptext" style="margin:0;">(บัญชีของคุณ)</span>'
-          : `<button class="btn ${u.active ? "btn-danger" : "btn-primary"} btn-sm" onclick="Users.toggleActive('${u.id}', ${u.active})">${u.active ? "ปิดใช้งาน" : "เปิดใช้งาน"}</button>`;
+          : `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn ${u.active ? "btn-danger" : "btn-primary"} btn-sm" onclick="Users.toggleActive('${u.id}', ${u.active})">${u.active ? "ปิดใช้งาน" : "เปิดใช้งาน"}</button>
+              <button class="btn btn-danger btn-sm" onclick="Users.deleteUser('${u.id}')">ลบ</button>
+            </div>`;
         return `<tr>
         <td>${u.full_name}</td>
         <td>${u.email || "-"}</td>
         <td>${roleSelect}</td>
         <td>${statusBadge}</td>
         <td>${new Date(u.created_at).toLocaleDateString("th-TH")}</td>
-        <td>${toggleBtn}</td>
+        <td>${actions}</td>
       </tr>`;
       })
       .join("");
@@ -66,6 +69,27 @@ const Users = {
     const { error } = await sb.from("profiles").update({ active: nextActive }).eq("id", userId);
     if (error) return UI.toast(`${label}ไม่สำเร็จ: ` + error.message, true);
     UI.toast(`${label}บัญชีเรียบร้อยแล้ว`);
+    Users.load();
+  },
+
+  // ลบบัญชีผู้ใช้ถาวร ใช้สำหรับกรณีบุคคลนั้นไม่ได้ทำงานที่นี่แล้ว (ต่างจาก "ปิดใช้งาน" ที่ยังเก็บบัญชีไว้ชั่วคราว)
+  async deleteUser(userId) {
+    if (userId === AppState.user.id) return UI.toast("ไม่สามารถลบบัญชีตัวเองได้", true);
+    const row = Users.rows.find((u) => u.id === userId);
+    const label = row ? `${row.full_name}${row.email ? ` (${row.email})` : ""}` : "บัญชีนี้";
+    const ok = await UI.confirmDialog({
+      title: "ลบบัญชีผู้ใช้นี้?",
+      html: `<div style="text-align:left;font-size:14px;">
+        <p><b>${escapeHtml(label)}</b></p>
+        <p style="color:var(--text-soft);">ใช้สำหรับกรณีบุคคลนี้ไม่ได้ทำงานที่นี่แล้ว บัญชีจะหายไปจากรายชื่อและเข้าใช้งานระบบไม่ได้อีกทันที</p>
+        <p style="color:var(--text-soft);">ข้อมูลที่เคยทำไว้ (เช่น ประวัติการนำเข้า/สลิปที่เคยสร้าง) จะยังอยู่ครบ เพียงแต่จะไม่ระบุชื่อผู้ทำรายการอีกต่อไป การกระทำนี้ย้อนกลับไม่ได้</p>
+      </div>`,
+      confirmText: "ลบถาวร",
+    });
+    if (!ok) return;
+    const { error } = await sb.from("profiles").delete().eq("id", userId);
+    if (error) return UI.toast("ลบไม่สำเร็จ: " + error.message, true);
+    UI.toast("ลบบัญชีผู้ใช้เรียบร้อยแล้ว");
     Users.load();
   },
 };
