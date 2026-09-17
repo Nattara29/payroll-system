@@ -121,10 +121,6 @@ tr:hover td{background:#f7faf8;}
 .badge-red{background:var(--red-bg);color:var(--red);}
 .badge-gray{background:var(--bg);color:var(--text-soft);border:1px solid var(--line);}
 
-.toast{position:fixed;bottom:22px;right:22px;background:var(--green-900);color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;
-  box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;transform:translateY(10px);pointer-events:none;transition:.25s;z-index:80;}
-.toast.show{opacity:1;transform:translateY(0);}
-.toast.error{background:var(--red);}
 
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(15,61,39,.4);z-index:60;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;}
 .modal-bg.active{display:flex;}
@@ -186,7 +182,8 @@ tr:hover td{background:#f7faf8;}
 .slip-genat{margin-top:18px;font-size:10.5px;color:var(--text-soft);text-align:right;}
 
 @media print{
-  #sidebar,#topbar,.toast,.no-print{display:none !important;}
+  #sidebar,#topbar,.no-print{display:none !important;}
+  .swal2-container{display:none !important;}
   /* !important จำเป็น: ตอนพิมพ์ Chromium คำนวณความกว้างหน้ากระดาษ A4 (~210mm) ซึ่งตรงกับเงื่อนไข
      @media(max-width:900px) ด้านล่างด้วย ถ้าไม่บังคับด้วย important กฎ padding ของ breakpoint นั้น
      (ซึ่งอยู่หลังในไฟล์) จะทับกฎนี้ ทำให้ #content มี padding เหลือ และดันเนื้อหาล้นไปหน้า 2 ที่ว่างเปล่า */

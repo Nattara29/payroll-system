@@ -56,7 +56,13 @@ const Users = {
     if (userId === AppState.user.id) return UI.toast("ไม่สามารถปิดใช้งานบัญชีตัวเองได้", true);
     const nextActive = !currentActive;
     const label = nextActive ? "เปิดใช้งาน" : "ปิดใช้งาน";
-    if (!confirm(`${label}บัญชีนี้?` + (nextActive ? "" : "\n\nผู้ใช้จะเข้าสู่ระบบและใช้งานข้อมูลใด ๆ ไม่ได้อีกทันที"))) return;
+    const ok = await UI.confirmDialog({
+      title: `${label}บัญชีนี้?`,
+      html: nextActive ? "" : '<p style="text-align:left;color:var(--text-soft);">ผู้ใช้จะเข้าสู่ระบบและใช้งานข้อมูลใด ๆ ไม่ได้อีกทันที</p>',
+      confirmText: label,
+      danger: !nextActive,
+    });
+    if (!ok) return;
     const { error } = await sb.from("profiles").update({ active: nextActive }).eq("id", userId);
     if (error) return UI.toast(`${label}ไม่สำเร็จ: ` + error.message, true);
     UI.toast(`${label}บัญชีเรียบร้อยแล้ว`);

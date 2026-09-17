@@ -203,7 +203,12 @@ const ManualSlip = {
   async deleteSlip(id) {
     const row = ManualSlip.rows.find((r) => r.id === id);
     const label = row ? `${row.employee_name} — ${row.title}` : "รายการนี้";
-    if (!confirm(`ลบสลิป "${label}"?\n\nการกระทำนี้ย้อนกลับไม่ได้`)) return;
+    const ok = await UI.confirmDialog({
+      title: "ลบสลิปนี้?",
+      html: `<p style="text-align:left;"><b>${escapeHtml(label)}</b></p><p style="color:var(--text-soft);">การกระทำนี้ย้อนกลับไม่ได้</p>`,
+      confirmText: "ลบ",
+    });
+    if (!ok) return;
     const { error } = await sb.from("manual_slips").delete().eq("id", id);
     if (error) return UI.toast("ลบไม่สำเร็จ: " + error.message, true);
     UI.toast("ลบสลิปเรียบร้อยแล้ว");

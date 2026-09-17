@@ -1,4 +1,8 @@
 // โครงหลักของแอป: ล็อกอิน, เมนู, แดชบอร์ด, บุคลากร, ประวัติการนำเข้า
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 const AppState = {
   user: null,
   profile: null,
@@ -43,10 +47,35 @@ const UI = {
     if (id === "import") ImportWizard.render();
   },
   toast(msg, isError) {
-    const t = document.getElementById("toast");
-    t.textContent = msg;
-    t.className = "toast show" + (isError ? " error" : "");
-    setTimeout(() => (t.className = "toast"), 3200);
+    Swal.fire({
+      toast: true,
+      position: "top-end",
+      icon: isError ? "error" : "success",
+      title: msg,
+      showConfirmButton: false,
+      timer: 3200,
+      timerProgressBar: true,
+      didOpen: (el) => {
+        el.addEventListener("mouseenter", Swal.stopTimer);
+        el.addEventListener("mouseleave", Swal.resumeTimer);
+      },
+    });
+  },
+  // กล่องยืนยันสวย ๆ แทน confirm() ของเบราว์เซอร์ — คืนค่า true ถ้ากด "ยืนยัน/ลบ"
+  async confirmDialog({ title, html, confirmText = "ยืนยัน", danger = true }) {
+    const result = await Swal.fire({
+      icon: "warning",
+      title,
+      html,
+      showCancelButton: true,
+      confirmButtonText: confirmText,
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: danger ? "#c94430" : "#155c39",
+      cancelButtonColor: "#8aa08f",
+      reverseButtons: true,
+      focusCancel: danger,
+    });
+    return result.isConfirmed;
   },
   renderMenu() {
     const isAdmin = AppState.profile && AppState.profile.role === "admin";
@@ -236,13 +265,18 @@ const Employees = {
         (r) => `<tr><td>${r.payroll_periods.month}/${r.payroll_periods.year}</td><td>${Number(r.total_income).toLocaleString("th-TH")}</td><td>${Number(r.total_deduction).toLocaleString("th-TH")}</td><td>${Number(r.net_pay).toLocaleString("th-TH")}</td></tr>`
       )
       .join("");
-    UI.toast(`พบประวัติเงินเดือนของ ${name} จำนวน ${(data || []).length} งวด`);
-    alert(
-      `ประวัติเงินเดือน: ${name}\n\n` +
-        (data || [])
-          .map((r) => `${r.payroll_periods.month}/${r.payroll_periods.year}  รับสุทธิ ${Number(r.net_pay).toLocaleString("th-TH")} บาท`)
-          .join("\n")
-    );
+    Swal.fire({
+      title: `ประวัติเงินเดือน: ${name}`,
+      html:
+        (data || []).length === 0
+          ? '<p style="color:var(--text-soft);">ยังไม่มีประวัติเงินเดือน</p>'
+          : `<div class="table-scroll" style="max-height:340px;text-align:left;">
+              <table><thead><tr><th>งวด</th><th>รวมรับ</th><th>รวมหัก</th><th>รับสุทธิ</th></tr></thead><tbody>${rows}</tbody></table>
+            </div>`,
+      confirmButtonText: "ปิด",
+      confirmButtonColor: "#155c39",
+      width: 480,
+    });
   },
 };
 
@@ -296,7 +330,15 @@ const History = {
       n > 0
         ? `จะลบข้อมูลเงินเดือน ${n} คนที่ยังเป็นของการนำเข้าครั้งนี้อยู่ (คนที่ถูกเขียนทับด้วยการนำเข้าครั้งหลังไปแล้วจะไม่ถูกลบ)`
         : `การนำเข้านี้ไม่มีข้อมูลเงินเดือนที่ยังใช้งานอยู่แล้ว (ถูกเขียนทับด้วยการนำเข้าครั้งหลังไปหมดแล้ว) จะลบแค่ประวัตินี้ออก`;
-    const ok = confirm(`ลบรายการนำเข้านี้?\n\nไฟล์: ${filename}\nงวด: ${periodLabel}\n\n${detail}\n\nข้อมูลบุคลากรจะไม่ถูกลบ การกระทำนี้ย้อนกลับไม่ได้`);
+    const ok = await UI.confirmDialog({
+      title: "ลบรายการนำเข้านี้?",
+      html: `<div style="text-align:left;font-size:14px;">
+        <p><b>ไฟล์:</b> ${escapeHtml(filename)}<br/><b>งวด:</b> ${escapeHtml(periodLabel)}</p>
+        <p>${escapeHtml(detail)}</p>
+        <p style="color:var(--text-soft);">ข้อมูลบุคลากรจะไม่ถูกลบ การกระทำนี้ย้อนกลับไม่ได้</p>
+      </div>`,
+      confirmText: "ลบ",
+    });
     if (!ok) return;
 
     const { error: delRecErr } = await sb.from("payroll_records").delete().eq("import_log_id", logId);

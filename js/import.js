@@ -42,8 +42,13 @@ const ImportWizard = (() => {
     render();
   }
 
-  function cancelImport() {
-    if (!confirm("ยกเลิกการนำเข้าไฟล์นี้และเริ่มใหม่ทั้งหมด? ข้อมูลที่ยังไม่ได้กด \"ยืนยันนำเข้าข้อมูล\" จะยังไม่ถูกบันทึกอยู่แล้ว")) return;
+  async function cancelImport() {
+    const ok = await UI.confirmDialog({
+      title: "ยกเลิกการนำเข้าไฟล์นี้?",
+      html: '<p style="text-align:left;">เริ่มใหม่ทั้งหมด ข้อมูลที่ยังไม่ได้กด "ยืนยันนำเข้าข้อมูล" จะยังไม่ถูกบันทึกอยู่แล้ว จึงยกเลิกได้อย่างปลอดภัย</p>',
+      confirmText: "ยกเลิกการนำเข้า",
+    });
+    if (!ok) return;
     reset();
   }
 
