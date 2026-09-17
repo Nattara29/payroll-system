@@ -318,7 +318,8 @@ const History = {
 
   // ลบเฉพาะรายการเงินเดือนที่ "ยังเป็นของ" การนำเข้าครั้งนี้ (import_log_id ตรงกัน)
   // ถ้าคนไหนถูกเขียนทับด้วยการนำเข้าครั้งหลังไปแล้ว จะไม่ถูกลบ เพราะข้อมูลปัจจุบันเป็นของครั้งหลังแล้ว
-  // งวดเงินเดือน (payroll_periods) จะไม่ถูกลบ แม้ว่าการนำเข้าครั้งอื่นในงวดเดียวกันจะยังอยู่
+  // งวดเงินเดือน (payroll_periods) จะไม่ถูกลบ ถ้ายังมีข้อมูล/การนำเข้าอื่นอยู่ในงวดเดียวกัน
+  // แต่ถ้าลบแล้วงวดนั้นว่างเปล่าสนิท (ไม่มีข้อมูลเงินเดือนและไม่มีประวัตินำเข้าเหลือเลย) จะลบงวดที่ว่างนั้นออกไปด้วย
   async deleteImport(logId) {
     const row = History.rows.find((r) => r.id === logId);
     const periodLabel = row && row.payroll_periods ? row.payroll_periods.month + "/" + row.payroll_periods.year : "-";
@@ -345,6 +346,20 @@ const History = {
     if (delRecErr) return UI.toast("ลบไม่สำเร็จ: " + delRecErr.message, true);
     const { error: delLogErr } = await sb.from("import_logs").delete().eq("id", logId);
     if (delLogErr) return UI.toast("ลบไม่สำเร็จ: " + delLogErr.message, true);
+
+    // ถ้างวดนี้ไม่มีทั้งการนำเข้าและข้อมูลเงินเดือนเหลืออยู่เลย ให้ลบงวดที่ว่างเปล่านั้นออกด้วย
+    // ป้องกันไม่ให้เหลืองวดค้างอยู่ในเมนูสลิปเงินเดือน/รายชื่อบุคลากรทั้งที่ไม่มีข้อมูลแล้ว
+    const periodId = row && row.payroll_period_id;
+    if (periodId) {
+      const [{ count: remainingRecords }, { count: remainingLogs }] = await Promise.all([
+        sb.from("payroll_records").select("*", { count: "exact", head: true }).eq("payroll_period_id", periodId),
+        sb.from("import_logs").select("*", { count: "exact", head: true }).eq("payroll_period_id", periodId),
+      ]);
+      if (!remainingRecords && !remainingLogs) {
+        await sb.from("payroll_periods").delete().eq("id", periodId);
+      }
+    }
+
     UI.toast("ลบรายการนำเข้าเรียบร้อยแล้ว");
     History.load();
   },
