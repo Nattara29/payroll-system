@@ -77,7 +77,20 @@
 
       <!-- แดชบอร์ด -->
       <div class="view active" id="view-dashboard">
+        <div class="dash-greeting" id="dashGreeting"></div>
         <div class="grid grid-4" id="dashStats" style="margin-bottom:20px;"></div>
+        <div class="grid grid-2" style="margin-bottom:20px;align-items:start;">
+          <div class="card">
+            <h3 class="section-title">ยอดจ่ายสุทธิแยกตามกอง/สำนัก</h3>
+            <p class="section-sub" id="dashDeptChartSub">งวดล่าสุด</p>
+            <div id="dashDeptChart"></div>
+          </div>
+          <div class="card">
+            <h3 class="section-title">บุคลากรแยกตามประเภท</h3>
+            <p class="section-sub">เฉพาะที่ยังปฏิบัติงาน</p>
+            <div id="dashTypeChart"></div>
+          </div>
+        </div>
         <div class="card">
           <h3 class="section-title">งวดเงินเดือนล่าสุด</h3>
           <p class="section-sub">รายการงวดที่นำเข้าระบบแล้ว</p>

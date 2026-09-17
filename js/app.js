@@ -170,29 +170,55 @@ const Auth = {
   },
 };
 
+// ไอคอนเส้น (outline) แบบเรียบง่าย วาดเองด้วย SVG ไม่พึ่งไลบรารีไอคอนภายนอก
+const DASH_ICONS = {
+  users: '<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  building: '<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><rect height="18" rx="1" width="16" x="4" y="3"/><path d="M9 21v-4h6v4"/><path d="M8 7h1M12 7h1M16 7h1M8 11h1M12 11h1M16 11h1"/></svg>',
+  calendar: '<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><rect height="16" rx="2" width="18" x="3" y="5"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>',
+  wallet: '<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 12h-4a2 2 0 0 0 0 4h4v-4Z"/></svg>',
+};
+
+// วาดกราฟแท่งแนวนอนแบบง่าย (ไม่มีไลบรารีกราฟ) จากรายการ [ชื่อ, ค่า] ที่เรียงมากไปน้อยแล้ว
+function renderBarList(entries, formatValue) {
+  if (entries.length === 0) return '<p class="dash-empty">ยังไม่มีข้อมูล</p>';
+  const max = entries[0][1] || 1;
+  return entries
+    .map(
+      ([label, val]) => `<div class="bar-row">
+        <div class="bar-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.max((val / max) * 100, val > 0 ? 2 : 0)}%"></div></div>
+        <div class="bar-value">${formatValue(val)}</div>
+      </div>`
+    )
+    .join("");
+}
+
 const Dashboard = {
   async load() {
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? "สวัสดีตอนเช้า" : hour < 17 ? "สวัสดีตอนบ่าย" : "สวัสดีตอนเย็น";
+    const name = AppState.profile ? AppState.profile.full_name : "";
+    document.getElementById("dashGreeting").innerHTML = `
+      <div class="dash-hello">${greeting}${name ? ", " + escapeHtml(name) : ""}</div>
+      <div class="dash-date">${new Date().toLocaleDateString("th-TH", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</div>`;
+
     const el = document.getElementById("dashStats");
     el.innerHTML = '<div class="card">กำลังโหลด...</div>';
-    const [{ count: empCount }, { count: depCount }, { count: periodCount }] = await Promise.all([
+
+    const [{ count: empCount }, { count: depCount }, { count: periodCount }, { data: empTypeRows }] = await Promise.all([
       sb.from("employees").select("*", { count: "exact", head: true }).eq("active", true),
       sb.from("departments").select("*", { count: "exact", head: true }),
       sb.from("payroll_periods").select("*", { count: "exact", head: true }),
+      sb.from("employees").select("employee_type").eq("active", true),
     ]);
 
-    const stats = [
-      { label: "จำนวนบุคลากรทั้งหมด", num: empCount || 0, grad: "var(--grad-1)" },
-      { label: "จำนวนกอง/สำนัก", num: depCount || 0, grad: "var(--grad-2)" },
-      { label: "งวดเงินเดือนที่นำเข้าแล้ว", num: periodCount || 0, grad: "var(--grad-3)" },
-    ];
-    el.innerHTML = stats
-      .map(
-        (s) => `<div class="stat-card" style="background:${s.grad}">
-        <div class="stat-num">${s.num}</div>
-        <div class="stat-label">${s.label}</div>
-      </div>`
-      )
-      .join("");
+    const typeCounts = {};
+    (empTypeRows || []).forEach((e) => {
+      const t = e.employee_type || "ไม่ระบุประเภท";
+      typeCounts[t] = (typeCounts[t] || 0) + 1;
+    });
+    const typeEntries = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
+    document.getElementById("dashTypeChart").innerHTML = renderBarList(typeEntries, (v) => v.toLocaleString("th-TH") + " คน");
 
     const { data: periods } = await sb
       .from("payroll_periods")
@@ -202,18 +228,54 @@ const Dashboard = {
       .limit(6);
 
     const tbody = document.querySelector("#dashPeriodsTable tbody");
+    const deptChartEl = document.getElementById("dashDeptChart");
+    const deptChartSubEl = document.getElementById("dashDeptChartSub");
+
     if (!periods || periods.length === 0) {
+      const stats = [
+        { label: "จำนวนบุคลากรทั้งหมด", num: (empCount || 0).toLocaleString("th-TH"), grad: "var(--grad-1)", icon: DASH_ICONS.users },
+        { label: "จำนวนกอง/สำนัก", num: (depCount || 0).toLocaleString("th-TH"), grad: "var(--grad-2)", icon: DASH_ICONS.building },
+        { label: "งวดเงินเดือนที่นำเข้าแล้ว", num: "0", grad: "var(--grad-3)", icon: DASH_ICONS.calendar },
+        { label: "ยอดจ่ายสุทธิ งวดล่าสุด", num: "—", grad: "var(--grad-4)", icon: DASH_ICONS.wallet },
+      ];
+      el.innerHTML = stats
+        .map((s) => `<div class="stat-card" style="background:${s.grad}"><div class="stat-icon">${s.icon}</div><div class="stat-num">${s.num}</div><div class="stat-label">${s.label}</div></div>`)
+        .join("");
+      deptChartSubEl.textContent = "ยังไม่มีงวดเงินเดือน";
+      deptChartEl.innerHTML = '<p class="dash-empty">ยังไม่มีข้อมูลเงินเดือน</p>';
       tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-soft);">ยังไม่มีข้อมูลเงินเดือน — เริ่มที่เมนู "นำเข้าข้อมูลเงินเดือน"</td></tr>';
       return;
     }
+
     const rows = await Promise.all(
       periods.map(async (p) => {
-        const { data: recs } = await sb.from("payroll_records").select("net_pay").eq("payroll_period_id", p.id);
+        const { data: recs } = await sb.from("payroll_records").select("net_pay,departments(name)").eq("payroll_period_id", p.id);
         const count = recs ? recs.length : 0;
         const sum = recs ? recs.reduce((a, r) => a + Number(r.net_pay || 0), 0) : 0;
-        return { p, count, sum };
+        return { p, count, sum, recs: recs || [] };
       })
     );
+    const latest = rows[0];
+
+    const stats = [
+      { label: "จำนวนบุคลากรทั้งหมด", num: (empCount || 0).toLocaleString("th-TH"), grad: "var(--grad-1)", icon: DASH_ICONS.users },
+      { label: "จำนวนกอง/สำนัก", num: (depCount || 0).toLocaleString("th-TH"), grad: "var(--grad-2)", icon: DASH_ICONS.building },
+      { label: "งวดเงินเดือนที่นำเข้าแล้ว", num: (periodCount || 0).toLocaleString("th-TH"), grad: "var(--grad-3)", icon: DASH_ICONS.calendar },
+      { label: `ยอดจ่ายสุทธิ งวด ${latest.p.month}/${latest.p.year}`, num: latest.sum.toLocaleString("th-TH", { maximumFractionDigits: 0 }) + " ฿", grad: "var(--grad-4)", icon: DASH_ICONS.wallet },
+    ];
+    el.innerHTML = stats
+      .map((s) => `<div class="stat-card" style="background:${s.grad}"><div class="stat-icon">${s.icon}</div><div class="stat-num">${s.num}</div><div class="stat-label">${s.label}</div></div>`)
+      .join("");
+
+    const byDept = {};
+    latest.recs.forEach((r) => {
+      const name = r.departments ? r.departments.name : "ไม่ระบุกอง/สำนัก";
+      byDept[name] = (byDept[name] || 0) + Number(r.net_pay || 0);
+    });
+    const deptEntries = Object.entries(byDept).sort((a, b) => b[1] - a[1]);
+    deptChartSubEl.textContent = `งวด ${latest.p.month}/${latest.p.year}`;
+    deptChartEl.innerHTML = renderBarList(deptEntries, (v) => v.toLocaleString("th-TH", { maximumFractionDigits: 0 }));
+
     tbody.innerHTML = rows
       .map(
         ({ p, count, sum }) => `<tr>
