@@ -233,6 +233,28 @@
         </div>
       </div>
 
+      <!-- โปรไฟล์ของฉัน -->
+      <div class="view" id="view-profile">
+        <div class="grid grid-2" style="align-items:start;">
+          <div class="card">
+            <h3 class="section-title">ข้อมูลส่วนตัว</h3>
+            <p class="section-sub">แก้ไขชื่อ-สกุลที่แสดงในระบบ</p>
+            <div class="field"><label>ชื่อ-สกุล</label><input id="profFullName" placeholder="ชื่อ-สกุล"/></div>
+            <div class="field"><label>อีเมล</label><input disabled id="profEmail"/></div>
+            <div class="field"><label>บทบาท</label><input disabled id="profRole"/></div>
+            <button class="btn btn-primary" id="profSaveBtn" onclick="Profile.saveName()">บันทึกข้อมูลส่วนตัว</button>
+          </div>
+
+          <div class="card">
+            <h3 class="section-title">เปลี่ยนรหัสผ่าน</h3>
+            <p class="section-sub">ตั้งรหัสผ่านใหม่สำหรับเข้าสู่ระบบครั้งถัดไป</p>
+            <div class="field"><label>รหัสผ่านใหม่</label><input id="profNewPassword" placeholder="อย่างน้อย 6 ตัวอักษร" type="password"/></div>
+            <div class="field"><label>ยืนยันรหัสผ่านใหม่</label><input id="profConfirmPassword" placeholder="พิมพ์ซ้ำอีกครั้ง" type="password"/></div>
+            <button class="btn btn-primary" id="profPasswordBtn" onclick="Profile.changePassword()">เปลี่ยนรหัสผ่าน</button>
+          </div>
+        </div>
+      </div>
+
       <!-- จัดการผู้ใช้งาน -->
       <div class="view" id="view-users">
         <div class="card">
@@ -257,6 +279,7 @@
 <script src="js/import.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/users.js"></script>
+<script src="js/profile.js"></script>
 <script src="js/slip.js"></script>
 <script src="js/manualslip.js"></script>
 </body>

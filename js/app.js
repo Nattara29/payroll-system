@@ -12,11 +12,12 @@ const AppState = {
 
 const MENU = [
   { id: "dashboard", label: "แดชบอร์ด" },
-  { id: "import", label: "นำเข้าข้อมูลเงินเดือน" },
+  { id: "import", label: "นำเข้าข้อมูลเงินเดือน", adminOnly: true },
   { id: "employees", label: "บุคลากร" },
   { id: "slip", label: "สลิปเงินเดือน" },
   { id: "manualslip", label: "สลิปเงินเดือน (Manual)" },
   { id: "history", label: "ประวัติการนำเข้า" },
+  { id: "profile", label: "โปรไฟล์ของฉัน" },
   { id: "settings", label: "ตั้งค่า", adminOnly: true },
   { id: "users", label: "จัดการผู้ใช้งาน", adminOnly: true },
 ];
@@ -42,6 +43,7 @@ const UI = {
     if (id === "history") History.load();
     if (id === "settings") Settings.load();
     if (id === "users") Users.load();
+    if (id === "profile") Profile.load();
     if (id === "slip") Slip.render();
     if (id === "manualslip") ManualSlip.render();
     if (id === "import") ImportWizard.render();

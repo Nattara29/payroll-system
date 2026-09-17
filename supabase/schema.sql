@@ -119,36 +119,62 @@ as $$
 $$;
 
 -- ผู้ใช้ดู/แก้ไขโปรไฟล์ตัวเองได้เสมอ (แม้บัญชีจะถูกปิดใช้งาน จะได้รู้ตัวว่าถูกปิด)
+-- แก้ชื่อตัวเองได้ แต่เปลี่ยน role/active เองไม่ได้ (บังคับด้วย trigger prevent_self_role_escalation ด้านล่าง)
 create policy "profiles_self_select" on public.profiles for select using (auth.uid() = id);
 create policy "profiles_self_update" on public.profiles for update using (auth.uid() = id);
 -- admin ดู/แก้ไขโปรไฟล์ผู้ใช้ทุกคนได้ (หน้าจัดการผู้ใช้งาน: เปลี่ยน role, ปิด/เปิดบัญชี)
 create policy "profiles_admin_read" on public.profiles for select using (public.is_admin_user());
 create policy "profiles_admin_update" on public.profiles for update using (public.is_admin_user()) with check (public.is_admin_user());
 
+-- นำเข้าข้อมูลเงินเดือน (departments/employees/periods/mapping/records/logs) แก้ไขได้เฉพาะ admin เท่านั้น
+-- staff อ่านได้อย่างเดียว (เมนูนำเข้าถูกซ่อนจาก staff ที่ฝั่งหน้าเว็บด้วย)
 create policy "departments_read" on public.departments for select using (public.is_active_user());
-create policy "departments_write" on public.departments for all using (public.is_active_user()) with check (public.is_active_user());
+create policy "departments_insert_admin" on public.departments for insert with check (public.is_admin_user());
+create policy "departments_update_admin" on public.departments for update using (public.is_admin_user()) with check (public.is_admin_user());
+create policy "departments_delete_admin" on public.departments for delete using (public.is_admin_user());
 
 create policy "employees_read" on public.employees for select using (public.is_active_user());
-create policy "employees_write" on public.employees for all using (public.is_active_user()) with check (public.is_active_user());
+create policy "employees_insert_admin" on public.employees for insert with check (public.is_admin_user());
+create policy "employees_update_admin" on public.employees for update using (public.is_admin_user()) with check (public.is_admin_user());
+create policy "employees_delete_admin" on public.employees for delete using (public.is_admin_user());
 
 create policy "periods_read" on public.payroll_periods for select using (public.is_active_user());
-create policy "periods_insert" on public.payroll_periods for insert with check (public.is_active_user());
-create policy "periods_update" on public.payroll_periods for update using (public.is_active_user()) with check (public.is_active_user());
+create policy "periods_insert_admin" on public.payroll_periods for insert with check (public.is_admin_user());
+create policy "periods_update_admin" on public.payroll_periods for update using (public.is_admin_user()) with check (public.is_admin_user());
 -- ลบงวดเงินเดือนได้เฉพาะผู้ดูแลระบบ (admin) เท่านั้น เพราะจะพ่วงลบข้อมูลเงินเดือนทั้งงวด
 create policy "periods_delete_admin" on public.payroll_periods for delete using (public.is_admin_user());
 
 create policy "mapping_read" on public.column_mapping_templates for select using (public.is_active_user());
-create policy "mapping_write" on public.column_mapping_templates for all using (public.is_active_user()) with check (public.is_active_user());
+create policy "mapping_write_admin" on public.column_mapping_templates for all using (public.is_admin_user()) with check (public.is_admin_user());
 
 create policy "records_read" on public.payroll_records for select using (public.is_active_user());
-create policy "records_insert" on public.payroll_records for insert with check (public.is_active_user());
-create policy "records_update" on public.payroll_records for update using (public.is_active_user()) with check (public.is_active_user());
+create policy "records_insert_admin" on public.payroll_records for insert with check (public.is_admin_user());
+create policy "records_update_admin" on public.payroll_records for update using (public.is_admin_user()) with check (public.is_admin_user());
 -- ลบข้อมูลเงินเดือนได้เฉพาะ admin เท่านั้น (ใช้ตอนลบรายการนำเข้าที่ผิดจากหน้าประวัติการนำเข้า)
 create policy "records_delete_admin" on public.payroll_records for delete using (public.is_admin_user());
 
 create policy "logs_read" on public.import_logs for select using (public.is_active_user());
-create policy "logs_write" on public.import_logs for insert with check (public.is_active_user());
+create policy "logs_write_admin" on public.import_logs for insert with check (public.is_admin_user());
 create policy "logs_delete_admin" on public.import_logs for delete using (public.is_admin_user());
+
+-- ป้องกัน staff แก้ไข role/active ของตัวเองผ่านฟีเจอร์ "แก้ไขข้อมูลตนเอง" (เปลี่ยนได้เฉพาะแอดมิน)
+create or replace function public.prevent_self_role_escalation()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if (new.role is distinct from old.role or new.active is distinct from old.active) and not public.is_admin_user() then
+    raise exception 'เฉพาะผู้ดูแลระบบเท่านั้นที่เปลี่ยนบทบาทหรือสถานะการใช้งานได้';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_guard_role_active on public.profiles;
+create trigger profiles_guard_role_active
+before update on public.profiles
+for each row execute function public.prevent_self_role_escalation();
 
 -- เมื่อมีผู้ใช้สมัคร/ถูกสร้างใน auth.users ให้สร้างแถว profile อัตโนมัติ (พร้อม email สำหรับหน้าจัดการผู้ใช้งาน)
 create or replace function public.handle_new_user()
