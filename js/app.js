@@ -331,6 +331,7 @@ const Employees = {
       .join("");
     Swal.fire({
       title: `ประวัติเงินเดือน: ${name}`,
+      customClass: { title: "emp-history-title" },
       html:
         (data || []).length === 0
           ? '<p style="color:var(--text-soft);">ยังไม่มีประวัติเงินเดือน</p>'

@@ -210,6 +210,11 @@ tr:hover td{background:#f7faf8;}
   @page{size:A4;margin:0;}
 }
 
+/* ป๊อปอัพประวัติเงินเดือน (บุคลากร): ชื่อผู้รับเงินเดือนยาวแค่ไหนก็ให้อยู่แถวเดียว ไม่ตัดขึ้นบรรทัดใหม่ */
+.emp-history-title{
+  font-size:17px !important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
+}
+
 /* ---------- Responsive ---------- */
 @media(max-width:900px){
   #hamburgerBtn{display:inline-flex;align-items:center;justify-content:center;}
