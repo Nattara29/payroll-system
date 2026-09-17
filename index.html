@@ -25,7 +25,7 @@
     <div id="authFormFields">
       <div class="field"><label>อีเมล</label><input id="loginEmail" type="email" placeholder="name@example.com"/></div>
       <div class="field"><label>รหัสผ่าน</label><input id="loginPassword" type="password" placeholder="••••••••"/></div>
-      <p class="helptext" id="authSignupNotice" style="display:none;margin:-6px 0 14px 0;">📧 หลังกด "สมัครใช้งาน" ระบบจะส่งอีเมลยืนยันไปที่อีเมลที่กรอกไว้ กรุณาเปิดอีเมลและกดลิงก์ยืนยันก่อน จึงจะเข้าสู่ระบบครั้งแรกได้</p>
+      <p class="helptext" id="authSignupNotice" style="display:none;margin:-6px 0 14px 0;">📧 หลังกด "สมัครใช้งาน" ระบบจะส่งอีเมลยืนยันไปที่อีเมลที่กรอกไว้ กรุณาเปิดอีเมลและกดลิงก์ยืนยันก่อน จากนั้นรอผู้ดูแลระบบเปิดใช้งานบัญชีให้ ถึงจะเข้าสู่ระบบได้</p>
       <button class="btn btn-primary" id="authSubmitBtn" style="width:100%;justify-content:center;" onclick="Auth.login()">เข้าสู่ระบบ</button>
       <p class="helptext" style="text-align:center;margin-top:14px;">ยังไม่มีบัญชี? <a href="#" onclick="Auth.toggleSignup(event)" id="toggleSignupLink">สมัครใช้งาน</a></p>
     </div>
@@ -35,7 +35,7 @@
       <h3 style="font-family:'Kanit';margin:10px 0 6px 0;">สมัครสมาชิกสำเร็จ!</h3>
       <p class="helptext" style="margin-bottom:4px;">เราได้ส่งอีเมลยืนยันไปที่</p>
       <p style="font-weight:600;margin:0 0 14px 0;" id="authSignupEmail"></p>
-      <p class="helptext">กรุณาเปิดอีเมล (ถ้าไม่เจอในกล่องจดหมาย ลองดูที่ถังขยะ/สแปม) แล้วกดลิงก์ยืนยันในอีเมล จากนั้นกลับมาเข้าสู่ระบบที่หน้านี้อีกครั้ง</p>
+      <p class="helptext">กรุณาเปิดอีเมล (ถ้าไม่เจอในกล่องจดหมาย ลองดูที่ถังขยะ/สแปม) แล้วกดลิงก์ยืนยันในอีเมล จากนั้นรอผู้ดูแลระบบเปิดใช้งานบัญชีให้ก่อน จึงจะเข้าสู่ระบบที่หน้านี้ได้</p>
       <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:16px;" onclick="Auth.backToLoginAfterSignup()">ไปหน้าเข้าสู่ระบบ</button>
     </div>
   </div>

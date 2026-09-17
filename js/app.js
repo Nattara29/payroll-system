@@ -453,7 +453,7 @@ async function boot() {
     await sb.auth.signOut();
     document.getElementById("authScreen").style.display = "flex";
     document.getElementById("app").style.display = "none";
-    Auth.showError(profile ? "บัญชีนี้ถูกปิดใช้งานแล้ว กรุณาติดต่อผู้ดูแลระบบ" : "ไม่พบบัญชีผู้ใช้นี้ในระบบแล้ว กรุณาติดต่อผู้ดูแลระบบ");
+    Auth.showError(profile ? "บัญชีนี้ยังไม่เปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบเพื่อขอสิทธิ์การใช้งาน" : "ไม่พบบัญชีผู้ใช้นี้ในระบบแล้ว กรุณาติดต่อผู้ดูแลระบบ");
     return;
   }
 

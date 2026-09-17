@@ -10,7 +10,9 @@ create table if not exists public.profiles (
   full_name text not null,
   email text,
   role text not null default 'staff' check (role in ('admin','staff')),
-  active boolean not null default true,
+  -- ค่าเริ่มต้นเป็น false โดยตั้งใจ: บัญชีที่สมัครใหม่ต้องรอแอดมินไปกด "เปิดใช้งาน"
+  -- ที่เมนู "จัดการผู้ใช้งาน" ก่อน ถึงจะอ่าน/เขียนข้อมูลอะไรได้ (กัน active ทันทีตั้งแต่สมัคร)
+  active boolean not null default false,
   created_at timestamptz not null default now()
 );
 
